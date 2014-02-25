@@ -164,6 +164,11 @@ feba5f0ff854c084278e2b0cac4e1d6d0528801d gazebo_1.9.2
 eb6026547bacdafb6ae497ba11c3fd27f068d869 gazebo_1.9.2
 eb6026547bacdafb6ae497ba11c3fd27f068d869 gazebo_1.9.2
 2f4ff9761a18e52472449ecad972ad46112b2d95 gazebo_1.9.2
+34cf7d24a628aba1a2da9fba38478ab1fc59861e gazebo-prerelease_1.9.3
+7ac2b281ad79f94bfef00a8f07d044e293fe120d gazebo-prerelease_1.9.3
+7ac2b281ad79f94bfef00a8f07d044e293fe120d gazebo-prerelease_1.9.3
+05b8a4b42b5c077178bbbe2f537df90e4c194e81 gazebo-prerelease_1.9.3
+95562ee5ded4b35d767c9bf1b816cdb1ede9fcec gazebo_1.9.3
 d5e20fac63f551be53e7776eb5dda4e189b5f8b3 gazebo-prerelease_2.0.0
 d5e20fac63f551be53e7776eb5dda4e189b5f8b3 gazebo-prerelease_2.0.0
 042fdaf9ef43abcec1c9c0ce8eb3a7226b3cebde gazebo-prerelease_2.0.0
@@ -193,3 +198,10 @@ f569bcba38152952c5c08fbf833759ccaada2d47 gazebo-current-prerelease_2.2.1
 e6260d19c60f6c290d40ef09cb38854952bc16e7 gazebo-current-prerelease_2.2.1
 e6260d19c60f6c290d40ef09cb38854952bc16e7 gazebo-current-prerelease_2.2.1
 11d337d554f61016662509bee8c7d7cfeed5e8e9 gazebo-current-prerelease_2.2.1
+9e6412dead5c94f6efb1a90a85c45bce9324d760 gazebo-current_2.2.0
+9e6412dead5c94f6efb1a90a85c45bce9324d760 gazebo-current_2.2.0
+0000000000000000000000000000000000000000 gazebo-current_2.2.0
+3b8a07b268a516ed2f0f2609853d2f7bf8c51856 gazebo-current_2.2.1
+59d5a5c846f6d823932909729909cddf8a327e49 gazebo-current_2.2.2
+59d5a5c846f6d823932909729909cddf8a327e49 gazebo-current_2.2.2
+e1159a7f54fe81b60fb5745304332d2eef501f3f gazebo-current_2.2.2
