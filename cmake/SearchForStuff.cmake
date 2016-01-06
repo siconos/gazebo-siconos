@@ -795,3 +795,16 @@ else()
   message (STATUS "Looking for qwt >= 6.1.0 - not found")
   BUILD_ERROR ("Missing: libqwt-dev. Required for plotting.")
 endif ()
+
+########################################
+# Find siconos
+find_package(siconos)
+if (siconos_FOUND)
+  message (STATUS "Looking for Siconos - found")
+  set (HAVE_SICONOS TRUE)
+  set(siconos_INCLUDE_DIRS "${siconos_INCLUDE_DIRECTORIES}")
+else()
+  message (STATUS "Looking for Siconos - not found")
+  BUILD_WARNING ("Siconos not found, for Siconos physics engine option, please install siconos from source: http://siconos.gforge.inria.fr")
+  set (HAVE_SICONOS FALSE)
+endif ()

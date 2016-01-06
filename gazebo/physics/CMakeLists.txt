@@ -34,6 +34,15 @@ if (HAVE_SIMBODY)
   add_definitions(${Simbody_CFLAGS})
 endif()
 
+# Add Siconos support if present
+if (HAVE_SICONOS)
+  add_subdirectory(siconos)
+
+  include_directories(SYSTEM ${siconos_INCLUDE_DIRS})
+  link_directories(${siconos_LIBRARY_DIRS})
+  add_definitions(${siconos_CFLAGS})
+endif()
+
 include_directories(${TBB_INCLUDEDIR})
 
 # Be sure to locate this definition *after* add_subdirectories
@@ -178,6 +187,11 @@ endif()
 # Link in Simbody support if present
 if (HAVE_SIMBODY)
   target_link_libraries(gazebo_physics ${Simbody_LIBRARIES})
+endif()
+
+# Link in Siconos support if present
+if (HAVE_SICONOS)
+  target_link_libraries(gazebo_physics ${siconos_LIBRARIES})
 endif()
 
 if (HAVE_GDAL)

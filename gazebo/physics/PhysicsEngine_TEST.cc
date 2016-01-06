@@ -71,6 +71,8 @@ void PhysicsEngineTest::PhysicsEngineParam(const std::string &_physicsEngine)
     type = msgs::Physics::DART;
   else if (_physicsEngine == "simbody")
     type = msgs::Physics::SIMBODY;
+  else if (_physicsEngine == "siconos")
+    type = msgs::Physics::SICONOS;
   else
     type = msgs::Physics::ODE;
   physicsPubMsg.set_type(type);

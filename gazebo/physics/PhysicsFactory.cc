@@ -45,6 +45,11 @@ void RegisterODEPhysics();
   void RegisterDARTPhysics();
 #endif
 
+#ifdef HAVE_SICONOS
+  GZ_PHYSICS_VISIBLE
+  void RegisterSiconosPhysics();
+#endif
+
 using namespace gazebo;
 using namespace physics;
 
@@ -66,6 +71,10 @@ void PhysicsFactory::RegisterAll()
 
 #ifdef HAVE_DART
   RegisterDARTPhysics();
+#endif
+
+#ifdef HAVE_SICONOS
+  RegisterSiconosPhysics();
 #endif
 }
 

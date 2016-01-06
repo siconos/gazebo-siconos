@@ -50,11 +50,19 @@
 # define WORLD_STEP_DART_PGS , "DART_PGS"
 #endif
 
+#define SICONOS_SUPPORT
+
+#ifdef HAVE_SICONOS
+# undef SICONOS_SUPPORT
+# define SICONOS_SUPPORT , "siconos"
+#endif
+
 /// \brief Helper macro to instantiate gtest for different physics engines
 #define PHYSICS_ENGINE_VALUES ::testing::Values("ode" \
   BULLET_SUPPORT \
   SIMBODY_SUPPORT \
   DART_SUPPORT \
+  SICONOS_SUPPORT \
   )
 
 /// \brief Helper macro to instantiate gtest for different solvers
