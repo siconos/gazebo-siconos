@@ -725,3 +725,15 @@ endif()
 #    BUILD_WARNING ("Could not find libqwt-dev. Plotting features will be disabled.")
 #  endif (QWT_FIND_REQUIRED)
 #endif ()
+
+########################################
+# Find siconos
+find_package(siconos)
+if (siconos_FOUND)
+  message (STATUS "Looking for Siconos - found")
+  set (HAVE_SICONOS TRUE)
+else()
+  message (STATUS "Looking for Siconos - not found")
+  BUILD_WARNING ("Siconos not found, for Siconos physics engine option, please install siconos from source: http://siconos.gforge.inria.fr")
+  set (HAVE_SICONOS FALSE)
+endif ()

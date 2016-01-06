@@ -170,6 +170,14 @@ if (HAVE_SIMBODY)
   target_link_libraries(gazebo_physics ${Simbody_LIBRARIES})
 endif()
 
+if (HAVE_SICONOS)
+  add_subdirectory(siconos)
+endif()
+
+if (HAVE_SICONOS)
+  target_link_libraries(gazebo_physics gazebo_physics_siconos)
+endif()
+
 if (HAVE_GDAL)
   include_directories(${GDAL_INCLUDE_DIR})
   target_link_libraries(gazebo_physics ${GDAL_LIBRARY})

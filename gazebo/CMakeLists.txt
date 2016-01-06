@@ -65,6 +65,9 @@ target_link_libraries(gzserver
 if (UNIX)
   target_link_libraries(gzserver pthread)
 endif()
+if(HAVE_SICONOS)
+  add_dependencies(gazebo_physics_siconos gazebo_msgs)
+endif()
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "CHECK")
   target_link_libraries(gzserver gcov)
