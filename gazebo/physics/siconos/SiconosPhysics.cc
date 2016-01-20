@@ -26,6 +26,7 @@
 
 #include "gazebo/physics/siconos/SiconosPlaneShape.hh"
 #include "gazebo/physics/siconos/SiconosSphereShape.hh"
+#include "gazebo/physics/siconos/SiconosRayShape.hh"
 
 #include "gazebo/physics/siconos/SiconosHingeJoint.hh"
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
@@ -146,6 +147,11 @@ ShapePtr SiconosPhysics::CreateShape(const std::string &_type,
     shape.reset(new SiconosPlaneShape(collision));
   else if (_type == "sphere")
     shape.reset(new SiconosSphereShape(collision));
+  else if (_type == "ray")
+    if (_collision)
+      shape.reset(new SiconosRayShape(_collision));
+    else
+      shape.reset(new SiconosRayShape(this->world->GetPhysicsEngine()));
   else
     gzerr << "Unable to create collision of type[" << _type << "]\n";
 
