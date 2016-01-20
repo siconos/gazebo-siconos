@@ -31,7 +31,11 @@
 #include "gazebo/physics/Shape.hh"
 #include "gazebo/util/system.hh"
 
-#include <SiconosFwd.hpp>
+//#include <SiconosFwd.hpp>
+#include <MechanicsFwd.hpp>
+
+class SiconosWorld;
+namespace SP { typedef std::shared_ptr<::SiconosWorld> SiconosWorld; }
 
 namespace gazebo
 {
@@ -102,10 +106,10 @@ namespace gazebo
       public: virtual void DebugPrint() const;
 
       /// \brief Return the composite dynamical system (world)
-      public: SP::Model GetDynamicsWorld() const
-        {return this->dynamicsWorld;}
+      public: SP::SiconosWorld GetSiconosWorld() const
+        {return this->siconosWorld;}
 
-      private: SP::Model dynamicsWorld;
+      private: SP::SiconosWorld siconosWorld;
 
       private: common::Time lastUpdateTime;
 

@@ -41,7 +41,7 @@ namespace gazebo
       /// \brief Constructor
       /// \param[in] world pointer to the siconos composite dynamical system
       /// \param[in] _parent pointer to the parent Model
-      public: SiconosFixedJoint(SP::Model world, BasePtr _parent);
+      public: SiconosFixedJoint(SP::SiconosWorld world, BasePtr _parent);
 
       /// \brief Destructor
       public: virtual ~SiconosFixedJoint();

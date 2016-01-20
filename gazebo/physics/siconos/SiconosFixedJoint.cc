@@ -28,10 +28,10 @@ using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
-SiconosFixedJoint::SiconosFixedJoint(SP::Model _world, BasePtr _parent)
+SiconosFixedJoint::SiconosFixedJoint(SP::SiconosWorld _world, BasePtr _parent)
     : FixedJoint<SiconosJoint>(_parent)
 {
-  GZ_ASSERT(_world, "siconos world pointer is NULL");
+  GZ_ASSERT(_world, "SiconosWorld pointer is NULL");
   this->siconosWorld = _world;
   this->siconosFixed = NULL;
 }
@@ -144,7 +144,7 @@ void SiconosFixedJoint::Init()
   //this->siconosFixed->setLimit(0.0, 0.0);
 
   // Add the joint to the world
-  GZ_ASSERT(this->siconosWorld, "siconos world pointer is NULL");
+  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
   //this->siconosWorld->addConstraint(this->siconosFixed, true);
 
   // Allows access to impulse

@@ -27,6 +27,7 @@ set (sources
   SiconosSurfaceParams.cc
   # SiconosUniversalJoint.cc
   # gzBtUniversalConstraint.cc
+  SiconosWorld.cc
 )
 
 set (headers
@@ -57,6 +58,7 @@ set (headers
   SiconosTypes.hh
   # SiconosUniversalJoint.hh
   # gzBtUniversalConstraint.hh
+  SiconosWorld.hh
 )
 
 # set (gtest_sources

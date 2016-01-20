@@ -41,7 +41,7 @@ namespace gazebo
       ///  Constructor
       /// \param[in] world pointer to the siconos composite dynamical system
       /// \param[in] _parent pointer to the parent Model
-      public: SiconosHingeJoint(SP::Model world, BasePtr _parent);
+      public: SiconosHingeJoint(SP::SiconosWorld world, BasePtr _parent);
 
       /// Destructor
       public: virtual ~SiconosHingeJoint();

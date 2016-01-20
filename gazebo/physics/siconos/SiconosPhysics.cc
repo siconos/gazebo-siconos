@@ -49,6 +49,7 @@
 #include "gazebo/math/Vector3.hh"
 #include "gazebo/math/Rand.hh"
 
+#include "SiconosWorld.hh"
 #include "gazebo/physics/siconos/siconos_inc.h"
 
 using namespace gazebo;
@@ -60,9 +61,7 @@ GZ_REGISTER_PHYSICS_ENGINE("siconos", SiconosPhysics)
 SiconosPhysics::SiconosPhysics(WorldPtr _world)
     : PhysicsEngine(_world)
 {
-  double t0 = 0; // initial computation time
-  double T = std::numeric_limits<double>::infinity();
-  dynamicsWorld.reset(new ::Model(t0, T));
+  this->siconosWorld.reset(new ::SiconosWorld());
 
   // Set random seed for physics engine based on gazebo's random seed.
   // Note: this was moved from physics::PhysicsEngine constructor.
@@ -167,9 +166,9 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
   JointPtr joint;
 
   if (_type == "revolute")
-    joint.reset(new SiconosHingeJoint(this->dynamicsWorld, _parent));
+    joint.reset(new SiconosHingeJoint(this->siconosWorld, _parent));
   else if (_type == "fixed")
-    joint.reset(new SiconosFixedJoint(this->dynamicsWorld, _parent));
+    joint.reset(new SiconosFixedJoint(this->siconosWorld, _parent));
   else
     gzthrow("Unable to create joint of type[" << _type << "]");
 

@@ -28,10 +28,10 @@ using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
-SiconosHingeJoint::SiconosHingeJoint(SP::Model _world, BasePtr _parent)
+SiconosHingeJoint::SiconosHingeJoint(SP::SiconosWorld _world, BasePtr _parent)
     : HingeJoint<SiconosJoint>(_parent)
 {
-  GZ_ASSERT(_world, "siconos world pointer is NULL");
+  GZ_ASSERT(_world, "SiconosWorld pointer is NULL");
   this->siconosWorld = _world;
   this->siconosHinge = NULL;
   this->angleOffset = 0;
@@ -182,7 +182,7 @@ void SiconosHingeJoint::Init()
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
   // Add the joint to the world
-  GZ_ASSERT(this->siconosWorld, "siconos world pointer is NULL");
+  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
   // this->siconosWorld->addConstraint(this->siconosHinge, true);
 
   // Allows access to impulse
