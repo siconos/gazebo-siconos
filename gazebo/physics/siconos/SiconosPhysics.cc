@@ -82,7 +82,7 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
   // ODEPhysics checks this, so we will too.
   if (g == math::Vector3(0, 0, 0))
     gzwarn << "Gravity vector is (0, 0, 0). Objects will float.\n";
-  // this->dynamicsWorld->setGravity(btVector3(g.x, g.y, g.z));
+  this->SetGravity(g);
 }
 
 /// \brief Initialize the physics engine.
@@ -179,6 +179,7 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
 /// \param[in] _gravity New gravity vector.
 void SiconosPhysics::SetGravity(const gazebo::math::Vector3 &_gravity)
 {
+    this->siconosWorld->SetGravity(_gravity.x, _gravity.y, _gravity.z);
 }
 
 /// \brief Debug print out of the physic engine state.

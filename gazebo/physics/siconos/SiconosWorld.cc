@@ -17,10 +17,23 @@
 
 #include "SiconosWorld.hh"
 
+SiconosWorld::SiconosWorld()
+    : SiconosBodies()
+{
+    g.zero();
+}
+
 void SiconosWorld::init()
 {
 }
 
 void SiconosWorld::compute()
 {
+}
+
+void SiconosWorld::SetGravity(double _x, double _y, double _z)
+{
+    g.setValue(0, _x);
+    g.setValue(1, _y);
+    g.setValue(2, _z);
 }

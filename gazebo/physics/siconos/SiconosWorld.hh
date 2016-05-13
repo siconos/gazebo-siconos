@@ -18,16 +18,26 @@
 #define _GAZEBO_SICONOSWORLD_HH
 
 #include <SiconosBodies.hpp>
+#include "siconos_inc.h"
 
 #define NDOF 6
 
 class SiconosWorld : public SiconosBodies
 {
+  /// \brief Constructor
+  public: SiconosWorld();
+    
   /// \brief Initialization of the SiconosBodies simulation
-  public: void init();
+  public: virtual void init();
 
   /// \brief Compute a step of the SiconosBodies simulation
-  public: void compute();
+  public: virtual void compute();
+
+  /// \brief Gravity
+  public: void SetGravity(double x, double y, double z);
+
+  /// \brief Gravity vector
+  private: SiconosVector g;
 };
 
 #endif
