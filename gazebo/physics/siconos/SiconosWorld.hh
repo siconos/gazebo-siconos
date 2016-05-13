@@ -26,6 +26,9 @@ class SiconosWorld : public SiconosBodies
 {
   /// \brief Constructor
   public: SiconosWorld();
+
+  /// \brief Destructor
+  public: ~SiconosWorld();
     
   /// \brief Initialization of the SiconosBodies simulation
   public: virtual void init();
@@ -37,7 +40,7 @@ class SiconosWorld : public SiconosBodies
   public: void SetGravity(double x, double y, double z);
 
   /// \brief Gravity vector
-  private: SiconosVector g;
+  private: SiconosVector gravity;
 };
 
 #endif

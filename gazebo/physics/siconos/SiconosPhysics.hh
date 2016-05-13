@@ -31,7 +31,7 @@
 #include "gazebo/physics/Shape.hh"
 #include "gazebo/util/system.hh"
 
-//#include <SiconosFwd.hpp>
+#include <SiconosFwd.hpp>
 #include <MechanicsFwd.hpp>
 
 class SiconosWorld;

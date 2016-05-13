@@ -88,6 +88,7 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
 /// \brief Initialize the physics engine.
 void SiconosPhysics::Init()
 {
+  this->siconosWorld->init();
 }
 
 /// \brief Init the engine for threads.
@@ -179,7 +180,7 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
 /// \param[in] _gravity New gravity vector.
 void SiconosPhysics::SetGravity(const gazebo::math::Vector3 &_gravity)
 {
-    this->siconosWorld->SetGravity(_gravity.x, _gravity.y, _gravity.z);
+  this->siconosWorld->SetGravity(_gravity.x, _gravity.y, _gravity.z);
 }
 
 /// \brief Debug print out of the physic engine state.
