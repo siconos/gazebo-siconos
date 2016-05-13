@@ -21,6 +21,7 @@
 /* Conflict with Siconos' HAVE_BULLET macro */
 #undef HAVE_BULLET
 
+#include <BulletSiconosFwd.hpp>
 #include <SiconosKernel.hpp>
 
 #endif

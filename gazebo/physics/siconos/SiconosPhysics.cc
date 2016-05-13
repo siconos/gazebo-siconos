@@ -76,7 +76,9 @@ SiconosPhysics::~SiconosPhysics()
 //////////////////////////////////////////////////
 void SiconosPhysics::Load(sdf::ElementPtr _sdf)
 {
+  printf("SiconosPhysics::Load()\n");
   PhysicsEngine::Load(_sdf);
+  printf(".. done PhysicsEngine::Load()\n");
 
   math::Vector3 g = this->sdf->Get<math::Vector3>("gravity");
   // ODEPhysics checks this, so we will too.
@@ -88,17 +90,29 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
 /// \brief Initialize the physics engine.
 void SiconosPhysics::Init()
 {
+  printf("SiconosPhysics::Init()\n");
+  // Note this is called after Load(), CreateShape() etc..
   this->siconosWorld->init();
 }
 
 /// \brief Init the engine for threads.
 void SiconosPhysics::InitForThread()
 {
+  // TODO: Purpose of this function not known
 }
 
 /// \brief Update the physics engine collision.
 void SiconosPhysics::UpdateCollision()
 {
+}
+
+//////////////////////////////////////////////////
+void SiconosPhysics::UpdatePhysics()
+{
+  // need to lock, otherwise might conflict with world resetting
+  boost::recursive_mutex::scoped_lock lock(*this->physicsUpdateMutex);
+
+  this->siconosWorld->compute();
 }
 
 /// \brief Set the random number seed for the physics engine.
@@ -111,6 +125,7 @@ void SiconosPhysics::SetSeed(uint32_t _seed)
 /// \param[in] _parent Parent model for the link.
 LinkPtr SiconosPhysics::CreateLink(ModelPtr _parent)
 {
+  printf("SiconosPhysics::CreateLink(%p)\n", _parent);
   if (_parent == NULL)
     gzthrow("Link must have a parent\n");
 
@@ -126,6 +141,8 @@ LinkPtr SiconosPhysics::CreateLink(ModelPtr _parent)
 CollisionPtr SiconosPhysics::CreateCollision(const std::string &_type,
 											 LinkPtr _parent)
 {
+  printf("SiconosPhysics::CreateCollision(\"%s\", %p)\n", _type.c_str(), _parent);
+
   SiconosCollisionPtr collision(new SiconosCollision(_parent));
   ShapePtr shape = this->CreateShape(_type, collision);
   collision->SetShape(shape);
@@ -139,6 +156,8 @@ CollisionPtr SiconosPhysics::CreateCollision(const std::string &_type,
 ShapePtr SiconosPhysics::CreateShape(const std::string &_type,
 									 CollisionPtr _collision)
 {
+  printf("SiconosPhysics::CreateShape(\"%s\", %p)\n", _type.c_str(), _collision);
+
   ShapePtr shape;
   SiconosCollisionPtr collision =
     boost::dynamic_pointer_cast<SiconosCollision>(_collision);

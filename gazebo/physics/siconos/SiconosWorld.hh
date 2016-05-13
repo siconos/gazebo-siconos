@@ -17,12 +17,11 @@
 #ifndef _GAZEBO_SICONOSWORLD_HH
 #define _GAZEBO_SICONOSWORLD_HH
 
-#include <SiconosBodies.hpp>
 #include "siconos_inc.h"
 
 #define NDOF 6
 
-class SiconosWorld : public SiconosBodies
+class SiconosWorld
 {
   /// \brief Constructor
   public: SiconosWorld();
@@ -30,10 +29,10 @@ class SiconosWorld : public SiconosBodies
   /// \brief Destructor
   public: ~SiconosWorld();
     
-  /// \brief Initialization of the SiconosBodies simulation
+  /// \brief Initialization of the simulation
   public: virtual void init();
 
-  /// \brief Compute a step of the SiconosBodies simulation
+  /// \brief Compute a step of the simulation
   public: virtual void compute();
 
   /// \brief Gravity
@@ -41,6 +40,33 @@ class SiconosWorld : public SiconosBodies
 
   /// \brief Gravity vector
   private: SiconosVector gravity;
+  private: bool gravity_changed;
+
+  /// \brief The Siconos OneStepIntegrator for this simulation
+  private: SP::OneStepIntegrator osi;
+
+  /// \brief The Siconos Model for this simulation
+  private: SP::Model model;
+
+  /// \brief The Siconos TimeDiscretisation for this simulation
+  private: SP::TimeDiscretisation timedisc;
+
+  /// \brief The Siconos OneStepNonSmoothProblem for this
+  ///        simulation's friction constraint
+  private: SP::FrictionContact osnspb;
+
+  /// \brief The Siconos NonSmoothLaw governing contact constraints
+  private: SP::NonSmoothLaw nslaw;
+
+  /// \brief The Siconos broadphase collision manager
+  private: SP::BulletSpaceFilter space_filter;
+
+  /// \brief The Siconos TimeStepping handler for this simulation
+  private: SP::BulletTimeStepping simulation;
+
+  // temporary
+  SP::btCollisionObject ground;
+  SP::btCollisionShape groundShape;
 };
 
 #endif

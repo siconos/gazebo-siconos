@@ -56,7 +56,9 @@ namespace gazebo
                 bParent = boost::dynamic_pointer_cast<SiconosCollision>(
                     this->collisionParent);
 
-                // math::Vector3 n = this->GetNormal();
+                math::Vector3 n = this->GetNormal();
+                printf("this->GetNormal(): %f, %f, %f\n",
+                       n.x, n.y, n.z);
                 // btVector3 vec(n.x, n.y, n.z);
 
                 // bParent->SetCollisionShape(new btStaticPlaneShape(vec, 0.0),

@@ -17,19 +17,26 @@
 
 #include "SiconosWorld.hh"
 
+#include <SiconosBodies.hpp>
 #include <SiconosKernel.hpp>
-#include <SpaceFilter.hpp>
-#include <SphereNEDS.hpp>
+
+#include <BulletSpaceFilter.hpp>
+#include <BulletTimeStepping.hpp>
+//#include <BulletWeightedShape.hpp> ??
+//#include <BulletDS.hpp> ??
+//#include <BulletR.hpp> ??
+
+#include <bullet/BulletCollision/btBulletCollisionCommon.h>
 
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
 #include "gazebo/common/Exception.hh"
 
 SiconosWorld::SiconosWorld()
-    : SiconosBodies()
 {
     this->gravity.resize(3);
     this->gravity.zero();
+    this->gravity_changed = false;
 }
 
 SiconosWorld::~SiconosWorld()
@@ -38,66 +45,95 @@ SiconosWorld::~SiconosWorld()
 
 void SiconosWorld::init()
 {
+  printf("SiconosWorld::init()\n");
+  // User-defined main parameters (TODO: parameters from SDF)
+  double h = 0.005;                // time step
+  double position_init = 10.0;     // initial position
+  double velocity_init = 0.0;      // initial velocity
+
+  double g = 9.81;
+  double theta = 0.5;              // theta for MoreauJeanOSI integrator
+
+  // -----------------------------------------
+  // --- Dynamical systems && interactions ---
+  // -----------------------------------------
+
   try
   {
-    // User-defined main parameters
-    double t0 = 0;                   // initial computation time
-
-    double T = std::numeric_limits<double>::infinity();
-
-    double h = 0.005;                // time step
-    double g = 9.81;
-
-    double theta = 0.5;              // theta for MoreauJeanOSI integrator
-
     // -- OneStepIntegrators --
-    SP::OneStepIntegrator osi;
-    osi.reset(new MoreauJeanOSI(theta));
+    this->osi.reset(new MoreauJeanOSI(theta));
 
     // -- Model --
-    _model.reset(new Model(t0, T));
+    this->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
 
-    /*
-     * Here the dynamic systems should be initialized and added to the
-     * integrator and the model.
-     */
+#if 0
+    // -- Create the first dynamical system here, but don't insert it
+    //    until after the simulation starts.
+    SP::BulletDS body( makeBox(g, position_init, shapes) );
+
+    // -- Add the dynamical system in the non smooth dynamical system
+    osi->insertDynamicalSystem(body);
+    model->nonSmoothDynamicalSystem()->insertDynamicalSystem(body);
+#endif
+
+#if 1
+    // Ground code -- TODO move to SiconosPlaneShape
+    this->ground.reset(new btCollisionObject());
+    ground->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT);
+    this->groundShape.reset(new btBoxShape(btVector3(30, 30, .5)));
+    btMatrix3x3 basis;
+    basis.setIdentity();
+    this->ground->getWorldTransform().setBasis(basis);
+    this->ground->setCollisionShape(&*groundShape);
+    this->ground->getWorldTransform().getOrigin().setZ(-.50);
+#endif
 
     // ------------------
     // --- Simulation ---
     // ------------------
 
-    SP::TimeDiscretisation timedisc_;
-    SP::Simulation simulation_;
-    SP::FrictionContact osnspb_;
-
-    // User-defined main parameters
     // -- Time discretisation --
-    timedisc_.reset(new TimeDiscretisation(t0, h));
+    this->timedisc.reset(new TimeDiscretisation(0, h));
 
     // -- OneStepNsProblem --
-    osnspb_.reset(new FrictionContact(3));
-    osnspb_->numericsSolverOptions()->iparam[0] = 1000;// Max number of iterations
-    osnspb_->numericsSolverOptions()->iparam[1] = 20;  // compute error iterations
-    osnspb_->numericsSolverOptions()->iparam[4] = 2;   // projection
-    osnspb_->numericsSolverOptions()->dparam[0] = 1e-7;// Tolerance
-    osnspb_->numericsSolverOptions()->dparam[2] = 1e-7;// Local tolerance
+    this->osnspb.reset(new FrictionContact(3));
 
-    osnspb_->setMaxSize(16384);            // max number of interactions
-    osnspb_->setMStorageType(1);           // Sparse storage
-    osnspb_->setNumericsVerboseMode(0);    // 0 silent, 1 verbose
-    osnspb_->setKeepLambdaAndYState(true); // inject previous solution
-
-    simulation_.reset(new TimeStepping(timedisc_));
-    simulation_->insertIntegrator(osi);
-    simulation_->insertNonSmoothProblem(osnspb_);
+    // -- Some configuration (TODO: parameters from SDF)
+    this->osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
+    this->osnspb->numericsSolverOptions()->dparam[0] = 1e-5; // Tolerance
+    this->osnspb->setMaxSize(16384);                         // max number of interactions
+    this->osnspb->setMStorageType(1);                        // Sparse storage
+    this->osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
+    this->osnspb->setKeepLambdaAndYState(true);              // inject previous solution
 
     // --- Simulation initialization ---
-    SP::NonSmoothLaw nslaw(new NewtonImpactFrictionNSL(0.0, 0.0, 0.6, 3));
 
-    _playground.reset(new SpaceFilter(3, 6, _model, _plans, _moving_plans));
-    _playground->insert(nslaw, 0, 0);
+    this->nslaw.reset(new NewtonImpactFrictionNSL(0.8, 0., 0.0, 3));
 
-    _model->initialize(simulation_);
+    // -- The space filter performs broadphase collision detection
+    this->space_filter.reset(new BulletSpaceFilter(this->model));
+
+    // -- insert a non smooth law for contactors id 0
+    this->space_filter->insert(this->nslaw, 0, 0);
+
+    // -- add multipoint iterations, this is needed to gather at least
+    // -- 3 contact points and avoid objects penetration, see Bullet
+    // -- documentation
+    this->space_filter->collisionConfiguration()->setConvexConvexMultipointIterations();
+    this->space_filter->collisionConfiguration()->setPlaneConvexMultipointIterations();
+
+    // -- The ground is a static object
+    // -- we give it a group contactor id : 0
+    // -- TODO move to SiconosPlaneShape
+    this->space_filter->addStaticObject(this->ground, 0);
+
+    // -- MoreauJeanOSI Time Stepping with Bullet Dynamical Systems
+    this->simulation.reset(new BulletTimeStepping(this->timedisc));
+
+    this->simulation->insertIntegrator(this->osi);
+    this->simulation->insertNonSmoothProblem(this->osnspb);
+
+    this->model->initialize(this->simulation);
   }
 
   catch (SiconosException e)
@@ -114,11 +150,26 @@ void SiconosWorld::init()
 
 void SiconosWorld::compute()
 {
+  printf("SiconosWorld::compute() (time == %f)\n", this->model->currentTime());
   try
   {
-    _playground->buildInteractions(_model->currentTime());
-    _model->simulation()->advanceToEvent();
-    _model->simulation()->processEvents();
+    if (this->gravity_changed)
+    {
+        // TODO: add gravity to all objects
+        this->gravity_changed = false;
+    }
+
+    if (!this->simulation->hasNextEvent())
+        return;
+
+    this->space_filter->buildInteractions(this->model->currentTime());
+
+    this->simulation->computeOneStep();
+
+    this->simulation->nextStep();
+
+    // _model->simulation()->advanceToEvent();
+    // _model->simulation()->processEvents();
   }
 
   catch (SiconosException e)
@@ -136,4 +187,5 @@ void SiconosWorld::SetGravity(double _x, double _y, double _z)
     this->gravity.setValue(0, _x);
     this->gravity.setValue(1, _y);
     this->gravity.setValue(2, _z);
+    this->gravity_changed = true;
 }

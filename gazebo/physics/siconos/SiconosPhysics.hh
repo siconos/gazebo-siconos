@@ -35,7 +35,7 @@
 #include <MechanicsFwd.hpp>
 
 class SiconosWorld;
-namespace SP { typedef std::shared_ptr<::SiconosWorld> SiconosWorld; }
+namespace SP { typedef std11::shared_ptr<::SiconosWorld> SiconosWorld; }
 
 namespace gazebo
 {
@@ -65,6 +65,9 @@ namespace gazebo
 
       /// \brief Update the physics engine collision.
       public: virtual void UpdateCollision();
+
+      /// \brief Update the physics engine by one time step
+      public: virtual void UpdatePhysics();
 
       /// \brief Return the physics engine type (ode|bullet|dart|simbody).
       /// \return Type of the physics engine.
