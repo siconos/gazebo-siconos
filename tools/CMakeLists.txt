@@ -50,6 +50,7 @@ if (UNIX)
   target_link_libraries(gz pthread)
 endif()
 
+
 gz_install_executable(gz)
 
 if (NOT WIN32)
