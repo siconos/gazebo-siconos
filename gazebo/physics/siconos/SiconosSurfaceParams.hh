@@ -55,9 +55,6 @@ namespace gazebo
       public: virtual FrictionPyramidPtr GetFrictionPyramid() const;
 
       /// \brief Friction pyramid parameters (mu1, mu2).
-      // For further documentation, see:
-      // github.com/erwincoumans/siconos3/blob/master/src/SiconosDynamics
-      // /ConstraintSolver/btSequentialImpulseConstraintSolver.cpp#L910
       private: FrictionPyramidPtr frictionPyramid;
     };
     /// \}

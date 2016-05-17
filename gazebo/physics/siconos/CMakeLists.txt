@@ -1,33 +1,28 @@
 include (${gazebo_cmake_dir}/GazeboUtils.cmake)
 
-include_directories(${SICONOS_INCLUDE_DIRS})
-
-link_directories(${SICONOS_LIBRARY_DIRS})
-
-add_definitions(${SICONOS_CFLAGS})
-
-set (sources
+set (sources ${sources}
   # SiconosBallJoint.cc
-  SiconosCollision.cc
-  SiconosFixedJoint.cc
+  siconos/SiconosCollision.cc
+  siconos/SiconosFixedJoint.cc
   # SiconosHeightmapShape.cc
   # SiconosHinge2Joint.cc
-  SiconosHingeJoint.cc
-  SiconosJoint.cc
-  SiconosLink.cc
+  siconos/SiconosHingeJoint.cc
+  siconos/SiconosJoint.cc
+  siconos/SiconosLink.cc
   # SiconosMesh.cc
   # SiconosMeshShape.cc
   # SiconosMotionState.cc
   # SiconosMultiRayShape.cc
-  SiconosPhysics.cc
+  siconos/SiconosPhysics.cc
   # SiconosPolylineShape.cc
-  SiconosRayShape.cc
+  siconos/SiconosRayShape.cc
   # SiconosScrewJoint.cc
   # SiconosSliderJoint.cc
-  SiconosSurfaceParams.cc
+  siconos/SiconosSurfaceParams.cc
   # SiconosUniversalJoint.cc
   # gzBtUniversalConstraint.cc
-  SiconosWorld.cc
+  siconos/SiconosWorld.cc
+  PARENT_SCOPE
 )
 
 set (headers
@@ -61,15 +56,10 @@ set (headers
   SiconosWorld.hh
 )
 
-# set (gtest_sources
-#   SiconosTypes_TEST.cc
-#   SiconosPhysics_TEST.cc
-# )
-# gz_build_tests(${gtest_sources})
+set (gtest_fixture_sources
+  SiconosPhysics_TEST.cc
+)
+gz_build_tests(${gtest_fixture_sources}
+  EXTRA_LIBS gazebo_physics gazebo_test_fixture)
 
-gz_add_library(gazebo_physics_siconos ${sources})
-target_link_libraries(gazebo_physics_siconos ${siconos_LIBRARIES})
-target_include_directories(gazebo_physics_siconos PRIVATE ${siconos_INCLUDE_DIRECTORIES})
-
-gz_install_library(gazebo_physics_siconos)
 gz_install_includes("physics/siconos" ${headers})

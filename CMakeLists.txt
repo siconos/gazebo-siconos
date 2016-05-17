@@ -370,9 +370,6 @@ else (build_errors)
   if (INCLUDE_PLAYER)
     set(PKG_LIBRARIES ${PKG_LIBRARIES} gazebo_player)
   endif()
-  if (HAVE_SICONOS)
-    set(PKG_LIBRARIES ${PKG_LIBRARIES} gazebo_physics_siconos)
-  endif()
 
   set(PKG_LIBRARIES ${PKG_LIBRARIES}
     gazebo_physics

@@ -24,7 +24,7 @@ using namespace physics;
 //////////////////////////////////////////////////
 SiconosSurfaceParams::SiconosSurfaceParams()
   : SurfaceParams()
-  , frictionPyramid(new FrictionPyramid())
+  , frictionPyramid(new physics::FrictionPyramid())
 {
 }
 
