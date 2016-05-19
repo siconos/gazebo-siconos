@@ -17,16 +17,10 @@
 
 #include "SiconosWorld.hh"
 
-#include <SiconosBodies.hpp>
-#include <SiconosKernel.hpp>
-
-#include <BulletSpaceFilter.hpp>
-#include <BulletTimeStepping.hpp>
-//#include <BulletWeightedShape.hpp> ??
-//#include <BulletDS.hpp> ??
-//#include <BulletR.hpp> ??
-
-#include <bullet/BulletCollision/btBulletCollisionCommon.h>
+#include <MechanicsFwd.hpp>
+#include <BulletBroadphase.hpp>
+#include <BodyTimeStepping.hpp>
+#include <BodyDS.hpp>
 
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
@@ -66,28 +60,6 @@ void SiconosWorld::init()
     // -- Model --
     this->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
 
-#if 0
-    // -- Create the first dynamical system here, but don't insert it
-    //    until after the simulation starts.
-    SP::BulletDS body( makeBox(g, position_init, shapes) );
-
-    // -- Add the dynamical system in the non smooth dynamical system
-    osi->insertDynamicalSystem(body);
-    model->nonSmoothDynamicalSystem()->insertDynamicalSystem(body);
-#endif
-
-#if 1
-    // Ground code -- TODO move to SiconosPlaneShape
-    this->ground.reset(new btCollisionObject());
-    ground->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT);
-    this->groundShape.reset(new btBoxShape(btVector3(30, 30, .5)));
-    btMatrix3x3 basis;
-    basis.setIdentity();
-    this->ground->getWorldTransform().setBasis(basis);
-    this->ground->setCollisionShape(&*groundShape);
-    this->ground->getWorldTransform().getOrigin().setZ(-.50);
-#endif
-
     // ------------------
     // --- Simulation ---
     // ------------------
@@ -111,24 +83,14 @@ void SiconosWorld::init()
     this->nslaw.reset(new NewtonImpactFrictionNSL(0.8, 0., 0.0, 3));
 
     // -- The space filter performs broadphase collision detection
-    this->space_filter.reset(new BulletSpaceFilter(this->model));
+    this->broadphase.reset(new BulletBroadphase(this->model));
 
     // -- insert a non smooth law for contactors id 0
-    this->space_filter->insert(this->nslaw, 0, 0);
+    // TODO: surface parameters
+    // this->space_filter->insert(this->nslaw, 0, 0);
 
-    // -- add multipoint iterations, this is needed to gather at least
-    // -- 3 contact points and avoid objects penetration, see Bullet
-    // -- documentation
-    this->space_filter->collisionConfiguration()->setConvexConvexMultipointIterations();
-    this->space_filter->collisionConfiguration()->setPlaneConvexMultipointIterations();
-
-    // -- The ground is a static object
-    // -- we give it a group contactor id : 0
-    // -- TODO move to SiconosPlaneShape
-    this->space_filter->addStaticObject(this->ground, 0);
-
-    // -- MoreauJeanOSI Time Stepping with Bullet Dynamical Systems
-    this->simulation.reset(new BulletTimeStepping(this->timedisc));
+    // -- MoreauJeanOSI Time Stepping for body mechanics
+    this->simulation.reset(new BodyTimeStepping(this->timedisc));
 
     this->simulation->insertIntegrator(this->osi);
     this->simulation->insertNonSmoothProblem(this->osnspb);
@@ -150,7 +112,7 @@ void SiconosWorld::init()
 
 void SiconosWorld::compute()
 {
-  printf("SiconosWorld::compute() (time == %f)\n", this->model->currentTime());
+  printf("SiconosWorld::compute() (time == %f)\n", this->simulation->nextTime());
   try
   {
     if (this->gravity_changed)
@@ -159,10 +121,11 @@ void SiconosWorld::compute()
         this->gravity_changed = false;
     }
 
-    if (!this->simulation->hasNextEvent())
-        return;
+    GZ_ASSERT(this->simulation->hasNextEvent(), "Simulation has no more events.");
 
-    this->space_filter->buildInteractions(this->model->currentTime());
+    this->broadphase->updateGraph();
+
+    this->broadphase->performBroadphase();
 
     this->simulation->computeOneStep();
 

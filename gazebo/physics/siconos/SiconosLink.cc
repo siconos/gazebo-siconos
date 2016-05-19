@@ -29,6 +29,8 @@
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
 
+#include <BodyDS.hpp>
+
 using namespace gazebo;
 using namespace physics;
 
@@ -36,14 +38,11 @@ using namespace physics;
 SiconosLink::SiconosLink(EntityPtr _parent)
     : Link(_parent)
 {
-  this->rigidLink = NULL;
-  this->compoundDS = NULL;
 }
 
 //////////////////////////////////////////////////
 SiconosLink::~SiconosLink()
 {
-  delete this->compoundDS;
 }
 
 //////////////////////////////////////////////////
@@ -83,17 +82,6 @@ void SiconosLink::Init()
   math::Vector3 cogVec = this->inertial->GetCoG();
 
   /// \todo FIXME:  Friction Parameters
-  /// Currently, gazebo uses btCompoundShape to store multiple
-  /// <collision> shapes in siconos.  Each child shape could have a
-  /// different mu1 and mu2.  This is not ideal as friction is set
-  /// per SiconosLink::rigidLink (btRigidBody : btCollisionObject).
-  /// Right now, the friction coefficients for the last SiconosCollision
-  /// processed in this link below is stored in hackMu1, hackMu2.
-  /// The average is stored in this->rigidLink.
-  /// Final friction coefficient is applied in ContactCallback
-  /// by taking the lower of the 2 colliding rigidLink's.
-  double hackMu1 = 0;
-  double hackMu2 = 0;
 
   for (Base_V::iterator iter = this->children.begin();
        iter != this->children.end(); ++iter)
@@ -102,8 +90,9 @@ void SiconosLink::Init()
     {
       SiconosCollisionPtr collision;
       collision = boost::static_pointer_cast<SiconosCollision>(*iter);
-      Interaction *interaction = collision->GetCollisionInteraction();
+      SP::SiconosShape shape = collision->GetCollisionShape();
 
+      /* Siconos TODO
       SurfaceParamsPtr surface = collision->GetSurface();
       GZ_ASSERT(surface, "Surface pointer for is invalid");
       FrictionPyramidPtr friction = surface->GetFrictionPyramid();
@@ -121,47 +110,22 @@ void SiconosLink::Init()
       //   this->compoundShape = new btCompoundShape();
       // dynamic_cast<btCompoundShape *>(this->compoundShape)->addChildShape(
       //     SiconosTypes::ConvertPose(relativePose), shape);
+      */
     }
   }
 
-  // if there are no collisions in the link then use an empty shape
-  // if (!this->compoundShape)
-  //   this->compoundShape = new btEmptyShape();
-
-  // this->compoundShape->calculateLocalInertia(mass, fallInertia);
-  // fallInertia = SiconosTypes::ConvertVector3(
-  //   this->inertial->GetPrincipalMoments());
-  // TODO: inertia products not currently used
-  // this->inertial->SetInertiaMatrix(fallInertia.x(), fallInertia.y(),
-  //                                  fallInertia.z(), 0, 0, 0);
-
-  // Create a construction info object
-  // btRigidBody::btRigidBodyConstructionInfo
-  //   rigidLinkCI(mass, this->motionState.get(), this->compoundShape,
-  //   fallInertia);
-
-  // rigidLinkCI.m_linearDamping = this->GetLinearDamping();
-  // rigidLinkCI.m_angularDamping = this->GetAngularDamping();
-
-  // // Create the new rigid body
-  // this->rigidLink = new btRigidBody(rigidLinkCI);
-  // this->rigidLink->setUserPointer(this);
-  // this->rigidLink->setCollisionFlags(this->rigidLink->getCollisionFlags() |
-  //     btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
-  // this->rigidLink->setFlags(BT_ENABLE_GYROPSCOPIC_FORCE);
+  // Create the new rigid body
+  SP::SiconosVector q(new SiconosVector(7));
+  SP::SiconosVector v(new SiconosVector(6));
+  q->zero();
+  v->zero();
+  (*q)(3) = 1.0;
+  this->body.reset(new BodyDS(q,v,1.0));
 
   // /// \TODO: get friction from collision object
-  // this->rigidLink->setAnisotropicFriction(btVector3(1, 1, 1),
+  // this->body->setAnisotropicFriction(btVector3(1, 1, 1),
   //   btCollisionObject::CF_ANISOTROPIC_FRICTION);
-  // this->rigidLink->setFriction(0.5*(hackMu1 + hackMu2));  // Hack
-
-  // Setup motion clamping to prevent objects from moving too fast.
-  // this->rigidLink->setCcdMotionThreshold(1);
-  // math::Vector3 size = this->GetBoundingBox().GetSize();
-  // this->rigidLink->setCcdSweptSphereRadius(size.GetMax()*0.8);
-
-  // if (mass <= 0.0)
-  //   this->rigidLink->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
+  // this->body->setFriction(0.5*(hackMu1 + hackMu2));  // Hack
 
   SP::SiconosWorld siconosWorld = this->siconosPhysics->GetSiconosWorld();
   GZ_ASSERT(siconosWorld != NULL, "Siconos dynamics world is NULL");
@@ -183,17 +147,17 @@ void SiconosLink::Init()
       break;
     }
   }
-  // siconosWorld->addRigidBody(this->rigidLink, categortyBits, collideBits);
+  // siconosWorld->addRigidBody(this->body, categortyBits, collideBits);
 
   // Only use auto disable if no joints and no sensors are present
-  // this->rigidLink->setActivationState(DISABLE_DEACTIVATION);
+  // this->body->setActivationState(DISABLE_DEACTIVATION);
   // if (this->GetModel()->GetAutoDisable() &&
   //     this->GetModel()->GetJointCount() == 0 &&
   //     this->GetSensorCount() == 0)
   // {
-  //   this->rigidLink->setActivationState(ACTIVE_TAG);
-  //   this->rigidLink->setSleepingThresholds(0.1, 0.1);
-  //   this->rigidLink->setDeactivationTime(1.0);
+  //   this->body->setActivationState(ACTIVE_TAG);
+  //   this->body->setSleepingThresholds(0.1, 0.1);
+  //   this->body->setDeactivationTime(1.0);
   // }
 
   this->SetGravityMode(this->sdf->Get<bool>("gravity"));
@@ -208,15 +172,16 @@ void SiconosLink::Fini()
   Link::Fini();
   SP::SiconosWorld world = this->siconosPhysics->GetSiconosWorld();
   GZ_ASSERT(world != NULL, "SiconosWorld is NULL");
-  // siconosWorld->removeRigidBody(this->rigidLink);
+  // siconosWorld->removeRigidBody(this->body);
 }
 
 /////////////////////////////////////////////////////////////////////
 void SiconosLink::UpdateMass()
 {
-  if (this->rigidLink && this->inertial)
+  if (this->body && this->inertial)
   {
-    // this->rigidLink->setMassProps(this->inertial->GetMass(),
+    // TODO Siconos
+    // this->body->setMassProps(this->inertial->GetMass(),
     //     SiconosTypes::ConvertVector3(this->inertial->GetPrincipalMoments()));
   }
 }
@@ -224,7 +189,8 @@ void SiconosLink::UpdateMass()
 //////////////////////////////////////////////////
 void SiconosLink::SetGravityMode(bool _mode)
 {
-  if (!this->rigidLink)
+  // TODO Siconos
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetGravityMode" << std::endl;
@@ -232,18 +198,19 @@ void SiconosLink::SetGravityMode(bool _mode)
   }
 
   if (_mode == false)
-    // this->rigidLink->setGravity(btVector3(0, 0, 0));
-    // this->rigidLink->setMassProps(btScalar(0), btmath::Vector3(0, 0, 0));
+    // this->body->setGravity(btVector3(0, 0, 0));
+    // this->body->setMassProps(btScalar(0), btmath::Vector3(0, 0, 0));
     ;
   else
   {
     math::Vector3 g = this->siconosPhysics->GetGravity();
-    // this->rigidLink->setGravity(btVector3(g.x, g.y, g.z));
+    // Siconos TODO
+    // this->body->setGravity(btVector3(g.x, g.y, g.z));
     /*btScalar btMass = this->mass.GetAsDouble();
     btmath::Vector3 fallInertia(0, 0, 0);
 
     this->compoundShape->calculateLocalInertia(btMass, fallInertia);
-    this->rigidLink->setMassProps(btMass, fallInertia);
+    this->body->setMassProps(btMass, fallInertia);
     */
   }
 }
@@ -252,14 +219,14 @@ void SiconosLink::SetGravityMode(bool _mode)
 bool SiconosLink::GetGravityMode() const
 {
   bool result = false;
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, GetGravityMode returns "
           << result << " by default." << std::endl;
     return result;
   }
-  // btVector3 g = this->rigidLink->getGravity();
+  // btVector3 g = this->body->getGravity();
   // result = !math::equal(static_cast<double>(g.length()), 0.0);
 
   return result;
@@ -272,31 +239,13 @@ void SiconosLink::SetSelfCollide(bool _collide)
 }
 
 //////////////////////////////////////////////////
-/*void SiconosLink::AttachCollision(Collision *_collision)
-{
-  Link::AttachCollision(_collision);
-
-  SiconosCollision *bcollision = dynamic_cast<SiconosCollision*>(_collision);
-
-  if (_collision == NULL)
-    gzthrow("requires SiconosCollision");
-
-  btTransform trans;
-  math::Pose relativePose = _collision->GetRelativePose();
-  trans = SiconosTypes::ConvertPose(relativePose);
-
-  bcollision->SetCompoundShapeIndex(this->compoundShape->getNumChildShapes());
-  this->compoundShape->addChildShape(trans, bcollision->GetCollisionShape());
-}
-  */
-
-//////////////////////////////////////////////////
 /// Adapted from ODELink::OnPoseChange
 void SiconosLink::OnPoseChange()
 {
   Link::OnPoseChange();
+  printf("SiconosLink::OnPoseChange()\n");
 
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to respond to OnPoseChange"
@@ -308,7 +257,8 @@ void SiconosLink::OnPoseChange()
 
   const math::Pose myPose = this->GetWorldCoGPose();
 
-  // this->rigidLink->setCenterOfMassTransform(
+  // TODO Siconos
+  // this->body->setCenterOfMassTransform(
   //   SiconosTypes::ConvertPose(myPose));
 }
 
@@ -323,34 +273,37 @@ bool SiconosLink::GetEnabled() const
 //////////////////////////////////////////////////
 void SiconosLink::SetEnabled(bool /*_enable*/) const
 {
+  // Siconos TODO
   /*
-  if (!this->rigidLink)
+  if (!this->body)
     return;
 
   if (_enable)
-    this->rigidLink->activate(true);
+    this->body->activate(true);
   else
-    this->rigidLink->setActivationState(WANTS_DEACTIVATION);
+    this->body->setActivationState(WANTS_DEACTIVATION);
     */
 }
 
 //////////////////////////////////////////////////
 void SiconosLink::SetLinearVel(const math::Vector3 &_vel)
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetLinearVel" << std::endl;
     return;
   }
 
-  // this->rigidLink->setLinearVelocity(SiconosTypes::ConvertVector3(_vel));
+  printf("SiconosLink::SetLinearVel()\n");
+  // TODO Siconos
+  // this->body->setLinearVelocity(SiconosTypes::ConvertVector3(_vel));
 }
 
 //////////////////////////////////////////////////
 math::Vector3 SiconosLink::GetWorldCoGLinearVel() const
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, GetWorldLinearVel returns "
@@ -358,7 +311,7 @@ math::Vector3 SiconosLink::GetWorldCoGLinearVel() const
     return math::Vector3(0, 0, 0);
   }
 
-  // btVector3 vel = this->rigidLink->getLinearVelocity();
+  // btVector3 vel = this->body->getLinearVelocity();
 
   // return SiconosTypes::ConvertVector3(vel);
   return math::Vector3(0,0,0);
@@ -367,7 +320,7 @@ math::Vector3 SiconosLink::GetWorldCoGLinearVel() const
 //////////////////////////////////////////////////
 math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset) const
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, GetWorldLinearVel returns "
@@ -378,7 +331,8 @@ math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset) const
   math::Pose wPose = this->GetWorldPose();
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
   math::Vector3 offsetFromCoG = wPose.rot*(_offset - this->inertial->GetCoG());
-  // btVector3 vel = this->rigidLink->getVelocityInLocalPoint(
+  // Siconos TODO
+  // btVector3 vel = this->body->getVelocityInLocalPoint(
   //     SiconosTypes::ConvertVector3(offsetFromCoG));
 
   // return SiconosTypes::ConvertVector3(vel);
@@ -389,7 +343,7 @@ math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset) const
 math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset,
                                             const math::Quaternion &_q) const
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, GetWorldLinearVel returns "
@@ -401,7 +355,8 @@ math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset,
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
   math::Vector3 offsetFromCoG = _q*_offset
         - wPose.rot*this->inertial->GetCoG();
-  // btVector3 vel = this->rigidLink->getVelocityInLocalPoint(
+  // Siconos TODO
+  // btVector3 vel = this->body->getVelocityInLocalPoint(
   //     SiconosTypes::ConvertVector3(offsetFromCoG));
 
   // return SiconosTypes::ConvertVector3(vel);
@@ -411,20 +366,22 @@ math::Vector3 SiconosLink::GetWorldLinearVel(const math::Vector3 &_offset,
 //////////////////////////////////////////////////
 void SiconosLink::SetAngularVel(const math::Vector3 &_vel)
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetAngularVel" << std::endl;
     return;
   }
 
-  // this->rigidLink->setAngularVelocity(SiconosTypes::ConvertVector3(_vel));
+  // Siconos TODO
+  printf("SiconosLink::SetAngularVel()\n");
+  // this->body->setAngularVelocity(SiconosTypes::ConvertVector3(_vel));
 }
 
 //////////////////////////////////////////////////
 math::Vector3 SiconosLink::GetWorldAngularVel() const
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, GetWorldAngularVel returns "
@@ -432,7 +389,8 @@ math::Vector3 SiconosLink::GetWorldAngularVel() const
     return math::Vector3(0, 0, 0);
   }
 
-  // btVector3 vel = this->rigidLink->getAngularVelocity();
+  // Siconos TODO
+  // btVector3 vel = this->body->getAngularVelocity();
 
   // return SiconosTypes::ConvertVector3(vel);
   return math::Vector3(0,0,0);
@@ -441,22 +399,25 @@ math::Vector3 SiconosLink::GetWorldAngularVel() const
 //////////////////////////////////////////////////
 void SiconosLink::SetForce(const math::Vector3 &_force)
 {
-  if (!this->rigidLink)
+  if (!this->body)
     return;
 
-  // this->rigidLink->applyCentralForce(
+  // Siconos TODO
+  printf("SiconosLink::SetForce()\n");
+  // this->body->applyCentralForce(
   //   btVector3(_force.x, _force.y, _force.z));
 }
 
 //////////////////////////////////////////////////
 math::Vector3 SiconosLink::GetWorldForce() const
 {
-  if (!this->rigidLink)
+  if (!this->body)
     return math::Vector3(0, 0, 0);
 
   // btVector3 btVec;
 
-  // btVec = this->rigidLink->getTotalForce();
+  // Siconos TODO
+  // btVec = this->body->getTotalForce();
 
   // return math::Vector3(btVec.x(), btVec.y(), btVec.z());
   return math::Vector3(0,0,0);
@@ -465,26 +426,29 @@ math::Vector3 SiconosLink::GetWorldForce() const
 //////////////////////////////////////////////////
 void SiconosLink::SetTorque(const math::Vector3 &_torque)
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetAngularVel" << std::endl;
     return;
   }
 
-  // this->rigidLink->applyTorque(SiconosTypes::ConvertVector3(_torque));
+  // Siconos TODO
+  printf("SiconosLink::SetTorque()\n");
+  // this->body->applyTorque(SiconosTypes::ConvertVector3(_torque));
 }
 
 //////////////////////////////////////////////////
 math::Vector3 SiconosLink::GetWorldTorque() const
 {
   /*
-  if (!this->rigidLink)
+  if (!this->body)
     return math::Vector3(0, 0, 0);
 
   btmath::Vector3 btVec;
 
-  btVec = this->rigidLink->getTotalTorque();
+  // Siconos TODO
+  btVec = this->body->getTotalTorque();
 
   return math::Vector3(btVec.x(), btVec.y(), btVec.z());
   */
@@ -492,15 +456,15 @@ math::Vector3 SiconosLink::GetWorldTorque() const
 }
 
 //////////////////////////////////////////////////
-DynamicalSystem *SiconosLink::GetSiconosLink() const
+SP::BodyDS SiconosLink::GetSiconosBodyDS() const
 {
-  return this->rigidLink;
+  return this->body;
 }
 
 //////////////////////////////////////////////////
 void SiconosLink::ClearCollisionCache()
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to ClearCollisionCache" << std::endl;
@@ -510,61 +474,44 @@ void SiconosLink::ClearCollisionCache()
   SP::SiconosWorld world = this->siconosPhysics->GetSiconosWorld();
   GZ_ASSERT(world != NULL, "SiconosWorld is NULL");
 
-  // siconosWorld->updateSingleAabb(this->rigidLink);
+  // Siconos TODO
+  // siconosWorld->updateSingleAabb(this->body);
   // siconosWorld->getBroadphase()->getOverlappingPairCache()->
-  //     cleanProxyFromPairs(this->rigidLink->getBroadphaseHandle(),
+  //     cleanProxyFromPairs(this->body->getBroadphaseHandle(),
   //     siconosWorld->getDispatcher());
 }
 
 //////////////////////////////////////////////////
 void SiconosLink::SetLinearDamping(double _damping)
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetLinearDamping"
           << std::endl;
     return;
   }
-  // this->rigidLink->setDamping((btScalar)_damping,
-  //     (btScalar)this->rigidLink->getAngularDamping());
+  // Siconos TODO
+  printf("SiconosLink::SetLinearDamping()\n");
+  // this->body->setDamping((btScalar)_damping,
+  //     (btScalar)this->body->getAngularDamping());
 }
 
 //////////////////////////////////////////////////
 void SiconosLink::SetAngularDamping(double _damping)
 {
-  if (!this->rigidLink)
+  if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
           << " does not exist, unable to SetAngularDamping"
           << std::endl;
     return;
   }
-  // this->rigidLink->setDamping(
-  //     (btScalar)this->rigidLink->getLinearDamping(), (btScalar)_damping);
+  // Siconos TODO
+  printf("SiconosLink::SetAngularDamping()\n");
+  // this->body->setDamping(
+  //     (btScalar)this->body->getLinearDamping(), (btScalar)_damping);
 }
-
-//////////////////////////////////////////////////
-/*void SiconosLink::SetCollisionRelativePose(SiconosCollision *_collision,
-    const math::Pose &_newPose)
-{
-  std::map<std::string, Collision*>::iterator iter;
-  unsigned int i;
-
-  for (iter = this->collisions.begin(), i = 0; iter != this->collisions.end();
-       ++iter, ++i)
-  {
-    if (iter->second == _collision)
-      break;
-  }
-
-  if (i < this->collisions.size())
-  {
-    // Set the pose of the _collision in Siconos
-    this->compoundShape->updateChildTransform(i,
-        SiconosTypes::ConvertPose(_newPose));
-  }
-}*/
 
 /////////////////////////////////////////////////
 void SiconosLink::AddForce(const math::Vector3 &/*_force*/)

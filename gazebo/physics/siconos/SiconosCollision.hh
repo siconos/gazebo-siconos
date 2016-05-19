@@ -79,14 +79,14 @@ namespace gazebo
       /// \brief Get the bounding box, defined by the physics engine
       public: virtual math::Box GetBoundingBox() const;
 
-      /// \brief Set the collision interaction
-      /// \param[in] _shape Collision interaction
+      /// \brief Set the collision shape
+      /// \param[in] _shape Collision shape
       /// \param[in] _placeable True to make the object movable.
-      public: void SetCollisionInteraction(Interaction *_interaction,
-                                           bool _placeable = true);
+      public: void SetCollisionShape(SP::SiconosShape _shape,
+                                     bool _placeable = true);
 
-      /// \brief Get the siconos collision interaction
-      public: Interaction *GetCollisionInteraction() const;
+      /// \brief Get the siconos collision shape
+      public: SP::SiconosShape GetCollisionShape() const;
 
       /// \brief Set the index of the compound shape
       public: void SetCompoundShapeIndex(int _index);
@@ -96,7 +96,7 @@ namespace gazebo
       /// \return Dynamically casted pointer to SiconosSurfaceParams.
       public: SiconosSurfaceParamsPtr GetSiconosSurface() const;
 
-      protected: Interaction *collisionInteraction;
+      protected: SP::SiconosShape collisionShape;
 
       /// \brief Category bits for collision detection
       private: unsigned int categoryBits;

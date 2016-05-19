@@ -30,7 +30,6 @@ SiconosCollision::SiconosCollision(LinkPtr _parent)
     : Collision(_parent)
 {
   this->SetName("Siconos_Collision");
-  this->collisionInteraction = NULL;
   this->surface.reset(new SiconosSurfaceParams());
 }
 
@@ -99,7 +98,7 @@ unsigned int SiconosCollision::GetCollideBits() const
 math::Box SiconosCollision::GetBoundingBox() const
 {
   math::Box result;
-  if (this->collisionInteraction)
+  if (this->collisionShape)
   {
       /*
     btVector3 btMin, btMax;
@@ -125,11 +124,11 @@ math::Box SiconosCollision::GetBoundingBox() const
 }
 
 //////////////////////////////////////////////////
-void SiconosCollision::SetCollisionInteraction(Interaction *_interaction,
-                                               bool _placeable)
+void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
+                                         bool _placeable)
 {
   Collision::SetCollision(_placeable);
-  this->collisionInteraction = _interaction;
+  this->collisionShape = _shape;
 
   // btmath::Vector3 vec;
   // this->collisionShape->calculateLocalInertia(this->mass.GetAsDouble(), vec);
@@ -141,9 +140,9 @@ void SiconosCollision::SetCollisionInteraction(Interaction *_interaction,
 }
 
 //////////////////////////////////////////////////
-Interaction *SiconosCollision::GetCollisionInteraction() const
+SP::SiconosShape SiconosCollision::GetCollisionShape() const
 {
-  return this->collisionInteraction;
+  return this->collisionShape;
 }
 
 //////////////////////////////////////////////////

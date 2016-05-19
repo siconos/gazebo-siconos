@@ -28,7 +28,7 @@ class SiconosWorld
 
   /// \brief Destructor
   public: ~SiconosWorld();
-    
+
   /// \brief Initialization of the simulation
   public: virtual void init();
 
@@ -59,14 +59,10 @@ class SiconosWorld
   private: SP::NonSmoothLaw nslaw;
 
   /// \brief The Siconos broadphase collision manager
-  private: SP::BulletSpaceFilter space_filter;
+  private: SP::SiconosBroadphase broadphase;
 
   /// \brief The Siconos TimeStepping handler for this simulation
-  private: SP::BulletTimeStepping simulation;
-
-  // temporary
-  SP::btCollisionObject ground;
-  SP::btCollisionShape groundShape;
+  private: SP::BodyTimeStepping simulation;
 };
 
 #endif

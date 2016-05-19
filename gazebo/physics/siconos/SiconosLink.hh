@@ -105,12 +105,12 @@ namespace gazebo
       // Documentation inherited.
       public: virtual void SetSelfCollide(bool _collide);
 
-      /// \brief Get the siconos dynamical system.
-      /// \return Pointer to siconos DynamicalSystem object.
-      public: DynamicalSystem *GetSiconosLink() const;
+      /// \brief Get the Siconos dynamical system.
+      /// \return Pointer to Siconos body DynamicalSystem object.
+      public: SP::BodyDS GetSiconosBodyDS() const;
 
       /// \internal
-      /// \brief Clear siconos collision cache needed when the body is resized.
+      /// \brief Clear Siconos collision cache needed when the body is resized.
       public: void ClearCollisionCache();
 
       // Documentation inherited.
@@ -160,10 +160,10 @@ namespace gazebo
 
       /// \brief Pointer to siconos compound dynamical system, which
       ///        is a container for other child dynamical systems.
-      private: DynamicalSystem *compoundDS;
+      private: SP::SiconosContactor contactor;
 
       /// \brief Pointer to the siconos rigid body object.
-      private: DynamicalSystem *rigidLink;
+      private: SP::BodyDS body;
 
       /// \brief Pointer to the siconos physics engine.
       private: SiconosPhysicsPtr siconosPhysics;
