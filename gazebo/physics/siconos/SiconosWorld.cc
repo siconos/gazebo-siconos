@@ -112,9 +112,10 @@ void SiconosWorld::init()
 
 void SiconosWorld::compute()
 {
-  printf("SiconosWorld::compute() (time == %f)\n", this->simulation->nextTime());
   try
   {
+    float time = this->simulation->nextTime();
+
     if (this->gravity_changed)
     {
         // TODO: add gravity to all objects
@@ -130,9 +131,6 @@ void SiconosWorld::compute()
     this->simulation->computeOneStep();
 
     this->simulation->nextStep();
-
-    // _model->simulation()->advanceToEvent();
-    // _model->simulation()->processEvents();
   }
 
   catch (SiconosException e)
