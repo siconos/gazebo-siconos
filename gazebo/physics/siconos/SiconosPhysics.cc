@@ -80,9 +80,11 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
   PhysicsEngine::Load(_sdf);
   printf(".. done PhysicsEngine::Load()\n");
 
-  math::Vector3 g = this->sdf->Get<math::Vector3>("gravity");
+  sdf::ElementPtr siconosElem = this->sdf->GetElement("siconos");
+
+  auto g = this->world->Gravity();
   // ODEPhysics checks this, so we will too.
-  if (g == math::Vector3(0, 0, 0))
+  if (g == ignition::math::Vector3d::Zero)
     gzwarn << "Gravity vector is (0, 0, 0). Objects will float.\n";
   this->SetGravity(g);
 }
