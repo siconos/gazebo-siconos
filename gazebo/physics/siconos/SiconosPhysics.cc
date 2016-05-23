@@ -87,6 +87,10 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
   if (g == ignition::math::Vector3d::Zero)
     gzwarn << "Gravity vector is (0, 0, 0). Objects will float.\n";
   this->SetGravity(g);
+
+  // Need to initialize the model which will receive created DSs.
+  // Note: Doing this in Init() is too late!
+  this->siconosWorld->init();
 }
 
 /// \brief Initialize the physics engine.
@@ -94,7 +98,6 @@ void SiconosPhysics::Init()
 {
   printf("SiconosPhysics::Init()\n");
   // Note this is called after Load(), CreateShape() etc..
-  this->siconosWorld->init();
 }
 
 /// \brief Init the engine for threads.

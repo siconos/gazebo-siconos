@@ -45,8 +45,13 @@ class SiconosWorld
   /// \brief The Siconos OneStepIntegrator for this simulation
   private: SP::OneStepIntegrator osi;
 
+  public: SP::OneStepIntegrator GetOneStepIntegrator() const { return osi; }
+
   /// \brief The Siconos Model for this simulation
   private: SP::Model model;
+
+  /// \brief Get the Siconos Model for this simulation
+  public: SP::Model GetModel() const { return model; }
 
   /// \brief The Siconos TimeDiscretisation for this simulation
   private: SP::TimeDiscretisation timedisc;
@@ -63,6 +68,9 @@ class SiconosWorld
 
   /// \brief The Siconos TimeStepping handler for this simulation
   private: SP::BodyTimeStepping simulation;
+
+  /// \brief Get the Siconos Simulation for this simulation
+  public: SP::BodyTimeStepping GetSimulation() const { return simulation; }
 };
 
 #endif

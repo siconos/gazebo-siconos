@@ -24,12 +24,14 @@
 
 #include "gazebo/physics/siconos/siconos_inc.h"
 #include "gazebo/physics/siconos/SiconosCollision.hh"
+#include "gazebo/physics/siconos/SiconosWorld.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 //#include "gazebo/physics/siconos/SiconosMotionState.hh"
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
 
 #include <BodyDS.hpp>
+#include <BodyTimeStepping.hpp>
 
 using namespace gazebo;
 using namespace physics;
@@ -70,15 +72,7 @@ void SiconosLink::Init()
   this->SetKinematic(this->sdf->Get<bool>("kinematic"));
 
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
-  // btScalar mass = this->inertial->GetMass();
-  // The siconos dynamics solver checks for zero mass to identify static and
-  // kinematic bodies.
-  if (this->IsStatic() || this->GetKinematic())
-  {
-    // mass = 0;
-    this->inertial->SetInertiaMatrix(0, 0, 0, 0, 0, 0);
-  }
-  // btVector3 fallInertia(0, 0, 0);
+  double mass = this->inertial->GetMass();
   math::Vector3 cogVec = this->inertial->GetCoG();
 
   /// \todo FIXME:  Friction Parameters
@@ -114,13 +108,22 @@ void SiconosLink::Init()
     }
   }
 
-  // Create the new rigid body
-  SP::SiconosVector q(new SiconosVector(7));
-  SP::SiconosVector v(new SiconosVector(6));
-  q->zero();
-  v->zero();
-  (*q)(3) = 1.0;
-  this->body.reset(new BodyDS(q,v,1.0));
+  if (this->IsStatic() || this->GetKinematic())
+  {
+      // If the object is static or kinematic, do not create a dynamical
+      // system for it.
+  }
+  else
+  {
+      // Otherwise, create the dynamic system with given inertia and
+      // initial state vectors
+      SP::SiconosVector q(new SiconosVector(7));
+      SP::SiconosVector v(new SiconosVector(6));
+      q->zero();
+      v->zero();
+      (*q)(3) = 1.0;
+      this->body.reset(new BodyDS(q,v,mass));
+  }
 
   // /// \TODO: get friction from collision object
   // this->body->setAnisotropicFriction(btVector3(1, 1, 1),
@@ -130,35 +133,24 @@ void SiconosLink::Init()
   SP::SiconosWorld siconosWorld = this->siconosPhysics->GetSiconosWorld();
   GZ_ASSERT(siconosWorld != NULL, "Siconos dynamics world is NULL");
 
-  // siconos supports setting bits to a rigid body but not individual
-  // shapes/collisions so find the first child collision and set rigid body to
-  // use its category and collision bits.
-  unsigned int categortyBits = GZ_ALL_COLLIDE;
-  unsigned int collideBits = GZ_ALL_COLLIDE;
-  SiconosCollisionPtr collision;
-  for (Base_V::iterator iter = this->children.begin();
-         iter != this->children.end(); ++iter)
-  {
-    if ((*iter)->HasType(Base::COLLISION))
-    {
-      collision = boost::static_pointer_cast<SiconosCollision>(*iter);
-      categortyBits = collision->GetCategoryBits();
-      collideBits = collision->GetCollideBits();
-      break;
-    }
-  }
-  // siconosWorld->addRigidBody(this->body, categortyBits, collideBits);
+  // TODO collision bits
 
-  // Only use auto disable if no joints and no sensors are present
-  // this->body->setActivationState(DISABLE_DEACTIVATION);
-  // if (this->GetModel()->GetAutoDisable() &&
-  //     this->GetModel()->GetJointCount() == 0 &&
-  //     this->GetSensorCount() == 0)
-  // {
-  //   this->body->setActivationState(ACTIVE_TAG);
-  //   this->body->setSleepingThresholds(0.1, 0.1);
-  //   this->body->setDeactivationTime(1.0);
-  // }
+  if (this->body)
+  {
+      printf("SiconosLink::Init(): Adding a DS\n");
+
+      // Add DS to the model
+      siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+          ->insertDynamicalSystem(this->body);
+
+      /* Initialize the DS at the current time */
+      this->body->initialize(siconosWorld->GetSimulation()->nextTime(),
+                             siconosWorld->GetOneStepIntegrator()->getSizeMem());
+
+      /* Partially re-initialize the simulation. */
+      siconosWorld->GetSimulation()->initialize(
+          siconosWorld->GetModel(), false);
+  }
 
   this->SetGravityMode(this->sdf->Get<bool>("gravity"));
 
@@ -170,8 +162,8 @@ void SiconosLink::Init()
 void SiconosLink::Fini()
 {
   Link::Fini();
-  SP::SiconosWorld world = this->siconosPhysics->GetSiconosWorld();
-  GZ_ASSERT(world != NULL, "SiconosWorld is NULL");
+  SP::SiconosWorld siconosWorld = this->siconosPhysics->GetSiconosWorld();
+  GZ_ASSERT(siconosWorld != NULL, "SiconosWorld is NULL");
   // siconosWorld->removeRigidBody(this->body);
 }
 
