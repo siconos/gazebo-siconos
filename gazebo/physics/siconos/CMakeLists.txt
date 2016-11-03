@@ -29,7 +29,7 @@ set (headers
   siconos_inc.h
   # siconos_math_inc.h
   # SiconosBallJoint.hh
-  # SiconosBoxShape.hh
+  SiconosBoxShape.hh
   # SiconosCollision.hh
   # SiconosCylinderShape.hh
   SiconosFixedJoint.hh
