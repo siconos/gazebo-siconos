@@ -87,7 +87,7 @@ void SiconosWorld::setup()
     // -- insert a default non smooth law for contactors id 0
     // TODO handle friction properly
     this->manager->insertNonSmoothLaw(
-      SP::NewtonImpactFrictionNSL(new NewtonImpactFrictionNSL(0.8, 0., 0.0, 3)), 0, 0);
+      SP::NewtonImpactFrictionNSL(new NewtonImpactFrictionNSL(0.8, 0., 0.1, 3)), 0, 0);
 
     // -- MoreauJeanOSI Time Stepping for body mechanics
     this->simulation.reset(new TimeStepping(this->timedisc));
