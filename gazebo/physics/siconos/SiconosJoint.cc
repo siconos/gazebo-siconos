@@ -30,6 +30,7 @@
 #include "gazebo/physics/siconos/siconos_inc.h"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 #include "gazebo/physics/siconos/SiconosJoint.hh"
+#include "gazebo/physics/siconos/SiconosWorld.hh"
 
 using namespace gazebo;
 using namespace physics;
@@ -38,8 +39,6 @@ using namespace physics;
 SiconosJoint::SiconosJoint(BasePtr _parent)
   : Joint(_parent)
 {
-  this->constraint = NULL;
-  this->siconosWorld = NULL;
   //this->feedback = NULL;
   this->stiffnessDampingInitialized = false;
   this->forceApplied[0] = 0;
@@ -49,11 +48,16 @@ SiconosJoint::SiconosJoint(BasePtr _parent)
 //////////////////////////////////////////////////
 SiconosJoint::~SiconosJoint()
 {
-  delete this->constraint;
-  this->constraint = NULL;
-  //delete this->feedback;
+  this->Fini();
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::Fini()
+{
   //this->feedback = NULL;
-  this->siconosWorld = NULL;
+
+  if (interaction)
+    siconosWorld->GetSimulation()->unlink(interaction);
 }
 
 //////////////////////////////////////////////////
@@ -109,7 +113,7 @@ LinkPtr SiconosJoint::GetJointLink(unsigned int _index) const
 {
   LinkPtr result;
 
-  if (this->constraint == NULL)
+  if (!this->interaction)
     gzthrow("Attach bodies to the joint first");
 
   if (_index == 0 || _index == 1)
@@ -134,7 +138,7 @@ LinkPtr SiconosJoint::GetJointLink(unsigned int _index) const
 //////////////////////////////////////////////////
 bool SiconosJoint::AreConnected(LinkPtr _one, LinkPtr _two) const
 {
-  return this->constraint && ((this->childLink.get() == _one.get() &&
+  return this->interaction && ((this->childLink.get() == _one.get() &&
                                this->parentLink.get() == _two.get()) ||
                               (this->childLink.get() == _two.get() &&
                                this->parentLink.get() == _one.get()));
@@ -145,10 +149,8 @@ void SiconosJoint::Detach()
 {
   this->childLink.reset();
   this->parentLink.reset();
-  // if (this->constraint && this->siconosWorld)
-  //   this->siconosWorld->removeConstraint(this->constraint);
-  delete this->constraint;
-  this->constraint = NULL;
+  this->siconosWorld->GetSimulation()->unlink(this->interaction);
+  this->interaction.reset();
 }
 
 //////////////////////////////////////////////////
@@ -167,7 +169,7 @@ void SiconosJoint::CacheForceTorque()
 //////////////////////////////////////////////////
 JointWrench SiconosJoint::GetForceTorque(unsigned int /*_index*/)
 {
-  GZ_ASSERT(this->constraint != NULL, "constraint should be valid");
+  GZ_ASSERT(!this->interaction, "interaction should be valid");
   return this->wrench;
 }
 

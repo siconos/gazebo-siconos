@@ -24,16 +24,17 @@
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
 
+#include <boost/make_shared.hpp>
+
 using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
-SiconosFixedJoint::SiconosFixedJoint(SP::SiconosWorld _world, BasePtr _parent)
-    : FixedJoint<SiconosJoint>(_parent)
+SiconosFixedJoint::SiconosFixedJoint(BasePtr _parent, SP::SiconosWorld _world)
+  : FixedJoint<SiconosJoint>(_parent)
 {
-  GZ_ASSERT(_world, "SiconosWorld pointer is NULL");
-  this->siconosWorld = _world;
-  this->siconosFixed = NULL;
+  siconosWorld = _world;
+  GZ_ASSERT(siconosWorld, "SiconosWorld pointer is NULL");
 }
 
 //////////////////////////////////////////////////
@@ -132,14 +133,14 @@ void SiconosFixedJoint::Init()
     return;
   }
 
-  if (!this->siconosFixed)
+  if (!this->siconosFixedJointR)
   {
     gzerr << "unable to create siconos hinge constraint\n";
     return;
   }
 
   // Give parent class SiconosJoint a pointer to this constraint.
-  this->constraint = this->siconosFixed;
+  this->relation = this->siconosFixedJointR;
 
   //this->siconosFixed->setLimit(0.0, 0.0);
 

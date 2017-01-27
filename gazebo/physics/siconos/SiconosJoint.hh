@@ -47,6 +47,9 @@ namespace gazebo
       /// \brief Load a SiconosJoint
       public: virtual void Load(sdf::ElementPtr _sdf);
 
+      // Documentation inherited.
+      public: virtual void Fini();
+
       /// \brief Reset the joint
       public: virtual void Reset();
 
@@ -142,7 +145,10 @@ namespace gazebo
       private: void SaveForce(unsigned int _index, double _force);
 
       /// \brief Pointer to a Interaction object in Siconos.
-      protected: Interaction *constraint;
+      protected: SP::Interaction interaction;
+
+      /// \brief Pointer to a Relation object in Siconos.
+      protected: SP::Relation relation;
 
       /// \brief Pointer to Siconos' composite dynamical system.
       protected: SP::SiconosWorld siconosWorld;

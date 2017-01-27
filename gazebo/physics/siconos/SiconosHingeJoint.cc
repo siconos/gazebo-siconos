@@ -23,17 +23,23 @@
 #include "gazebo/physics/siconos/SiconosLink.hh"
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
 #include "gazebo/physics/siconos/SiconosHingeJoint.hh"
+#include "gazebo/physics/siconos/SiconosWorld.hh"
+
+#include <siconos/Model.hpp>
+#include <siconos/NonSmoothDynamicalSystem.hpp>
+#include <siconos/BodyDS.hpp>
+#include <siconos/PivotJointR.hpp>
 
 using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
-SiconosHingeJoint::SiconosHingeJoint(SP::SiconosWorld _world, BasePtr _parent)
-    : HingeJoint<SiconosJoint>(_parent)
+SiconosHingeJoint::SiconosHingeJoint(BasePtr _parent, SP::SiconosWorld _world)
+  : HingeJoint<SiconosJoint>(_parent)
 {
-  GZ_ASSERT(_world, "SiconosWorld pointer is NULL");
-  this->siconosWorld = _world;
-  this->siconosHinge = NULL;
+  siconosWorld = _world;
+  GZ_ASSERT(siconosWorld, "SiconosWorld pointer is NULL");
+
   this->angleOffset = 0;
 }
 
@@ -102,46 +108,36 @@ void SiconosHingeJoint::Init()
     axisChild = axisChild.Normalize();
   }
 
+  SP::BodyDS ds1, ds2;
+
   // If both links exist, then create a joint between the two links.
   if (siconosChildLink && siconosParentLink)
   {
-// #ifdef LIBSICONOS_VERSION_GT_282
-//     this->siconosHinge = new btHingeAccumulatedAngleConstraint(
-// #else
-//     this->siconosHinge = new btHingeConstraint(
-// #endif
-//         *(siconosChildLink->GetSiconosLink()),
-//         *(siconosParentLink->GetSiconosLink()),
-//         SiconosTypes::ConvertVector3(pivotChild),
-//         SiconosTypes::ConvertVector3(pivotParent),
-//         SiconosTypes::ConvertVector3(axisChild),
-//         SiconosTypes::ConvertVector3(axisParent));
+    this->siconosPivotJointR = std11::make_shared<PivotJointR>(
+      ds1 = siconosChildLink->GetSiconosBodyDS(),
+      ds2 = siconosParentLink->GetSiconosBodyDS(),
+      SiconosTypes::ConvertVector3(pivotChild),
+      SiconosTypes::ConvertVector3(axisChild));
   }
   // If only the child exists, then create a joint between the child
   // and the world.
   else if (siconosChildLink)
   {
-// #ifdef LIBSICONOS_VERSION_GT_282
-//     this->siconosHinge = new btHingeAccumulatedAngleConstraint(
-// #else
-//     this->siconosHinge = new btHingeConstraint(
-// #endif
-//         *(siconosChildLink->GetSiconosLink()),
-//         SiconosTypes::ConvertVector3(pivotChild),
-//         SiconosTypes::ConvertVector3(axisChild));
+    this->siconosPivotJointR = std11::make_shared<PivotJointR>(
+      ds1 = siconosChildLink->GetSiconosBodyDS(),
+      SiconosTypes::ConvertVector3(pivotChild),
+      SiconosTypes::ConvertVector3(axisChild),
+      false /* not absoluteRef */);
   }
   // If only the parent exists, then create a joint between the parent
   // and the world.
   else if (siconosParentLink)
   {
-// #ifdef LIBSICONOS_VERSION_GT_282
-//     this->siconosHinge = new btHingeAccumulatedAngleConstraint(
-// #else
-//     this->siconosHinge = new btHingeConstraint(
-// #endif
-//         *(siconosParentLink->GetSiconosLink()),
-//         SiconosTypes::ConvertVector3(pivotParent),
-//         SiconosTypes::ConvertVector3(axisParent));
+    this->siconosPivotJointR = std11::make_shared<PivotJointR>(
+      ds1 = siconosParentLink->GetSiconosBodyDS(),
+      SiconosTypes::ConvertVector3(pivotParent),
+      SiconosTypes::ConvertVector3(axisParent),
+      false /* not absoluteRef */);
   }
   // Throw an error if no links are given.
   else
@@ -150,18 +146,23 @@ void SiconosHingeJoint::Init()
     return;
   }
 
-  if (!this->siconosHinge)
+  if (!this->siconosPivotJointR)
   {
-    gzerr << "unable to create siconos hinge constraint\n";
+    gzerr << "unable to create PivotJointR\n";
     return;
   }
 
   // Give parent class SiconosJoint a pointer to this constraint.
-  this->constraint = this->siconosHinge;
+  this->relation = this->siconosPivotJointR;
 
   // Set angleOffset based on hinge angle at joint creation.
   // PositionImpl will report angles relative to this offset.
   this->angleOffset = this->PositionImpl(0);
+
+  // Create a Siconos Interacton with an EqualityConditionNSL
+  int nc = this->siconosPivotJointR->numberOfConstraints();
+  this->interaction = std11::make_shared<Interaction>(
+    nc, std11::make_shared<EqualityConditionNSL>(nc), this->siconosPivotJointR);
 
   // Apply joint angle limits here.
   // TODO: velocity and effort limits.
@@ -181,9 +182,15 @@ void SiconosHingeJoint::Init()
   this->SetParam("friction", 0,
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
-  // Add the joint to the world
+  // Add the joint to the NSDS
   GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
-  // this->siconosWorld->addConstraint(this->siconosHinge, true);
+  this->siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+    ->link(this->interaction, ds1, ds2);
+
+  // Initialize Interaction states for the Simulation
+  this->siconosWorld->GetSimulation()->initializeInteraction(
+    this->siconosWorld->GetSimulation()->nextTime(),
+    this->interaction);
 
   // Allows access to impulse
   // this->siconosHinge->enableFeedback(true);
@@ -209,7 +216,7 @@ void SiconosHingeJoint::SetAxis(unsigned int /*_index*/,
 {
   // Note that _axis is given in a world frame,
   // but siconos uses a body-fixed frame
-  if (this->siconosHinge == NULL)
+  if (!this->siconosPivotJointR)
   {
     // this hasn't been initialized yet, store axis in initialWorldAxis
     ignition::math::Quaterniond axisFrame = this->AxisFrame(0);
@@ -271,7 +278,7 @@ double SiconosHingeJoint::GetVelocity(unsigned int /*_index*/) const
 //////////////////////////////////////////////////
 void SiconosHingeJoint::SetForceImpl(unsigned int /*_index*/, double /*_effort*/)
 {
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
   {
     // // z-axis of constraint frame
     // btVector3 hingeAxisLocalA =
@@ -299,7 +306,7 @@ void SiconosHingeJoint::SetUpperLimit(unsigned int /*_index*/,
                                       const double _limit)
 {
   Joint::SetUpperLimit(0, _limit);
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
   {
     // this function has additional parameters that we may one day
     // implement. Be warned that this function will reset them to default
@@ -318,7 +325,7 @@ void SiconosHingeJoint::SetLowerLimit(unsigned int /*_index*/,
                                       const double _limit)
 {
   Joint::SetLowerLimit(0, _limit);
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
   {
     // this function has additional parameters that we may one day
     // implement. Be warned that this function will reset them to default
@@ -336,7 +343,7 @@ void SiconosHingeJoint::SetLowerLimit(unsigned int /*_index*/,
 double SiconosHingeJoint::UpperLimit(const unsigned int /*_index*/) const
 {
   double result = ignition::math::NAN_D;
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
     result = 0.0;// TODO this->siconosHinge->getUpperLimit();
   else
     gzerr << "Joint must be created before getting upper limit\n";
@@ -347,7 +354,7 @@ double SiconosHingeJoint::UpperLimit(const unsigned int /*_index*/) const
 double SiconosHingeJoint::LowerLimit(const unsigned int /*_index*/) const
 {
   double result = ignition::math::NAN_D;
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
     result = 0.0; //TODO this->siconosHinge->getLowerLimit();
   else
     gzerr << "Joint must be created before getting low stop\n";
@@ -359,7 +366,7 @@ ignition::math::Vector3d SiconosHingeJoint::GlobalAxis(unsigned int /*_index*/) 
 {
   ignition::math::Vector3d result = this->initialWorldAxis;
 
-  if (this->siconosHinge)
+  if (this->siconosPivotJointR)
   {
     // I have not verified the following math, though I based it on internal
     // siconos code at line 250 of btHingeConstraint.cpp
@@ -387,7 +394,7 @@ bool SiconosHingeJoint::SetParam(const std::string &_key,
   {
     if (_key == "friction")
     {
-      if (this->siconosHinge)
+      if (this->siconosPivotJointR)
       {
         // enableAngularMotor takes max impulse as a parameter
         // instead of max force.
@@ -428,7 +435,7 @@ double SiconosHingeJoint::GetParam(const std::string &_key, unsigned int _index)
 
   if (_key == "friction")
   {
-    if (this->siconosHinge)
+    if (this->siconosPivotJointR)
     {
       // double dt = this->world->Physics()->GetMaxStepSize();
       //return this->siconosHinge->getMaxMotorImpulse() / dt;

@@ -277,9 +277,9 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
   JointPtr joint;
 
   if (_type == "revolute")
-    joint.reset(new SiconosHingeJoint(this->siconosWorld, _parent));
+    joint.reset(new SiconosHingeJoint(_parent, this->siconosWorld));
   else if (_type == "fixed")
-    joint.reset(new SiconosFixedJoint(this->siconosWorld, _parent));
+    joint.reset(new SiconosFixedJoint(_parent, this->siconosWorld));
   else
     gzthrow("Unable to create joint of type[" << _type << "]");
 

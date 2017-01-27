@@ -39,9 +39,9 @@ namespace gazebo
     class GZ_PHYSICS_VISIBLE SiconosFixedJoint : public FixedJoint<SiconosJoint>
     {
       /// \brief Constructor
-      /// \param[in] world pointer to the siconos composite dynamical system
       /// \param[in] _parent pointer to the parent Model
-      public: SiconosFixedJoint(SP::SiconosWorld world, BasePtr _parent);
+      /// \param[in] world pointer to the siconos composite dynamical system
+      public: SiconosFixedJoint(BasePtr _parent, SP::SiconosWorld _world);
 
       /// \brief Destructor
       public: virtual ~SiconosFixedJoint();
@@ -81,7 +81,8 @@ namespace gazebo
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
 
       /// \brief Pointer to siconos fixed constraint implementation
-      private: Interaction *siconosFixed;
+      // TODO: FixedJointR does not yet exist in Siconos!
+      private: SP::Relation siconosFixedJointR;
     };
     /// \}
   }

@@ -39,9 +39,9 @@ namespace gazebo
     class GZ_PHYSICS_VISIBLE SiconosHingeJoint : public HingeJoint<SiconosJoint>
     {
       ///  Constructor
-      /// \param[in] world pointer to the siconos composite dynamical system
       /// \param[in] _parent pointer to the parent Model
-      public: SiconosHingeJoint(SP::SiconosWorld world, BasePtr _parent);
+      /// \param[in] _world pointer to the siconos composite dynamical system
+    public: SiconosHingeJoint(BasePtr _parent, SP::SiconosWorld _world);
 
       /// Destructor
       public: virtual ~SiconosHingeJoint();
@@ -97,7 +97,7 @@ namespace gazebo
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
 
       /// \brief Pointer to siconos hinge constraint.
-      private: Interaction *siconosHinge;
+      private: SP::PivotJointR siconosPivotJointR;
 
       /// \brief Offset angle used in GetAngleImpl, so that angles are reported
       ///        relative to the initial configuration.
