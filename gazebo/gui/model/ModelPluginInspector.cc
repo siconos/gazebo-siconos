@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 */
 
 #include "gazebo/common/Console.hh"
-#include "gazebo/gui/model/ModelEditorEvents.hh"
 
-#include "gazebo/gui/model/ModelPluginInspectorPrivate.hh"
+#include "gazebo/gui/model/ModelEditorEvents.hh"
 #include "gazebo/gui/model/ModelPluginInspector.hh"
+#include "gazebo/gui/model/ModelPluginInspectorPrivate.hh"
 
 using namespace gazebo;
 using namespace gui;
@@ -116,8 +116,11 @@ void ModelPluginInspector::OnRemove()
 {
   std::string pluginName =
       this->dataPtr->configWidget->StringWidgetValue("name");
+
   this->OnCancel();
-  model::Events::requestModelPluginRemoval(pluginName);
+
+  // User request from inspector
+  model::Events::requestModelPluginRemoval(pluginName, true);
 }
 
 /////////////////////////////////////////////////

@@ -1,8 +1,10 @@
 include (${gazebo_cmake_dir}/GazeboUtils.cmake)
-include_directories(${IGNITION-MATH_INCLUDE_DIRS})
+include_directories(${IGNITION-MATH_INCLUDE_DIRS} ${IGNITION-MSGS_INCLUDE_DIRS})
 
 set (msgs
   altimeter.proto
+  any.proto
+  atmosphere.proto
   axis.proto
   battery.proto
   boxgeom.proto
@@ -16,14 +18,17 @@ set (msgs
   contacts.proto
   contactsensor.proto
   cylindergeom.proto
+  density.proto
   diagnostics.proto
   distortion.proto
+  empty.proto
   factory.proto
   fluid.proto
   fog.proto
   friction.proto
   geometry.proto
   gps.proto
+  gps_sensor.proto
   gui_camera.proto
   gui.proto
   gz_string.proto
@@ -36,6 +41,7 @@ set (msgs
   image_stamped.proto
   images_stamped.proto
   imu.proto
+  imu_sensor.proto
   inertial.proto
   int.proto
   joint.proto
@@ -63,6 +69,8 @@ set (msgs
   model_v.proto
   packet.proto
   physics.proto
+  param.proto
+  param_v.proto
   planegeom.proto
   pid.proto
   plugin.proto
@@ -93,6 +101,7 @@ set (msgs
   scene.proto
   selection.proto
   sensor.proto
+  sensor_noise.proto
   server_control.proto
   shadows.proto
   sim_event.proto
@@ -112,6 +121,7 @@ set (msgs
   vector2d.proto
   vector3d.proto
   visual.proto
+  wind.proto
   wireless_node.proto
   wireless_nodes.proto
   world_control.proto
@@ -180,7 +190,7 @@ foreach(FIL ${msgs})
     VERBATIM )
 endforeach()
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILDING_DLL_GZ_MSGS")
+add_definitions(-DBUILDING_DLL_GZ_MSGS)
 
 set_source_files_properties(${PROTO_SRCS} ${PROTO_HDRS} PROPERTIES GENERATED TRUE)
 gz_add_library(gazebo_msgs ${PROTO_SRCS} ${sources})
@@ -196,8 +206,8 @@ endif()
 
 target_link_libraries(gazebo_msgs
   gazebo_common
-  gazebo_math
   ${GZ_PROTOBUF_LIBRARY}
+  ${IGNITION-MSGS_LIBRARIES}
 )
 
 add_dependencies(gazebo_msgs gazebomsgs_out)

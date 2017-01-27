@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,15 @@ namespace gazebo
       /// \brief Qt callback when this item's button has been pressed.
       /// \param[in] _checked Whether it was checked or unchecked.
       private slots: void OnToggleItem(bool _checked);
+
+      /// \brief Callback for geometry changes.
+      private slots: void OnGeometryChanged();
+
+      /// \brief Signal to indicate a collision change.
+      /// \param[in] _name Name of the collision changed.
+      /// \param[in] _type Type of change ("geometry", etc).
+      Q_SIGNALS: void CollisionChanged(const std::string &_name,
+          const std::string &_type);
 
       /// \brief Unique ID of this collision config.
       public: int id;
@@ -121,6 +130,11 @@ namespace gazebo
       public: void Geometry(const std::string &_name,
           ignition::math::Vector3d &_size, std::string &_uri) const;
 
+      /// \brief Set the state of a show collision button.
+      /// \param[in] _show If true, button is checked.
+      /// \param[in] _name Name of collision.
+      public: void SetShowCollision(const bool _show, const std::string &_name);
+
       /// \brief Get collision config data
       /// \return Config data for the collisions.
       public: const std::map<int, CollisionConfigData *> &ConfigData() const;
@@ -133,6 +147,11 @@ namespace gazebo
       /// \param[in] _name Name of collision added.
       Q_SIGNALS: void CollisionAdded(const std::string &_name);
 
+      /// \brief Qt signal emitted requesting to show/hide a collision.
+      /// \param[in] _show True to show, false to hide.
+      /// \param[in] _name Name of collision removed.
+      Q_SIGNALS: void ShowCollision(const bool _show, const std::string &_name);
+
       /// \brief Qt signal emitted to indicate that changes should be applied.
       Q_SIGNALS: void Applied();
 
@@ -143,12 +162,28 @@ namespace gazebo
       /// \param[in] _id Id of item to be removed.
       private slots: void OnRemoveCollision(int _id);
 
+      /// \brief Qt callback when a show collision button was pressed.
+      /// \param[in] _id Id of item to be removed.
+      private slots: void OnShowCollision(const int _id);
+
       /// \brief Qt callback when a pose value has changed.
       /// \param[in] _name of widget in the config widget that emitted the
       /// signal.
       /// \param[in] _value New value.
       private slots: void OnPoseChanged(const QString &_name,
           const ignition::math::Pose3d &_value);
+
+      /// \brief Callback for handling collision changes.
+      /// \param[in] _name Name of collision changed.
+      /// \param[in] _type Type of change.
+      private slots: void OnCollisionChanged(
+          const std::string &_name, const std::string &_type);
+
+      /// \brief Signal to indicate a collision change.
+      /// \param[in] _name Name of collision changed.
+      /// \param[in] _type Type of change.
+      Q_SIGNALS: void CollisionChanged(
+          const std::string &_name, const std::string &_type);
 
       /// \brief Qt callback when a geometry value has changed.
       /// \param[in] _name of widget in the config widget that emitted the
@@ -174,7 +209,10 @@ namespace gazebo
       private: int counter;
 
       /// \brief Qt signal mapper for mapping remove button signals.
-      private:  QSignalMapper *signalMapper;
+      private:  QSignalMapper *mapperRemove;
+
+      /// \brief Qt signal mapper for mapping hide button signals.
+      private:  QSignalMapper *mapperShow;
 
       /// \brief A map of collision items to their id.
       private: std::map<int, QTreeWidgetItem *> collisionItems;

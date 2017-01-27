@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +26,8 @@
 #include <boost/filesystem.hpp>
 #include <sys/types.h>
 
-#ifdef __APPLE__
-# include <QtCore/qglobal.h>
-#endif
-
 // Not Apple or Windows
-#if not defined( Q_OS_MAC) && not defined(_WIN32)
+#if not defined(__APPLE__) && not defined(_WIN32)
 # include <X11/Xlib.h>
 # include <X11/Xutil.h>
 # include <GL/glx.h>
@@ -118,7 +114,9 @@ void RenderEngine::Load()
     // Make the root
     try
     {
-      this->dataPtr->root = new Ogre::Root();
+      // empty strings for config filenames (plugins.cfg and ogre.cfg)
+      // so ogre doesn't try to look for them.
+      this->dataPtr->root = new Ogre::Root("", "");
     }
     catch(Ogre::Exception &e)
     {
@@ -261,12 +259,6 @@ ScenePtr RenderEngine::GetScene(unsigned int index)
 }
 
 //////////////////////////////////////////////////
-unsigned int RenderEngine::GetSceneCount() const
-{
-  return this->SceneCount();
-}
-
-//////////////////////////////////////////////////
 unsigned int RenderEngine::SceneCount() const
 {
   return this->dataPtr->scenes.size();
@@ -333,14 +325,15 @@ void RenderEngine::Init()
 //////////////////////////////////////////////////
 void RenderEngine::Fini()
 {
+  // TODO: this was causing a segfault on shutdown
+  // Windows are created on load so clear them even
+  // if render engine is not initialized
+  this->dataPtr->windowManager->Fini();
+
   if (!this->dataPtr->initialized)
     return;
 
   this->dataPtr->connections.clear();
-
-  // TODO: this was causing a segfault on shutdown
-  // Close all the windows first;
-  this->dataPtr->windowManager->Fini();
 
   RTShaderSystem::Instance()->Fini();
 
@@ -388,7 +381,7 @@ void RenderEngine::Fini()
   this->dataPtr->scenes.clear();
 
   // Not Apple or Windows
-# if not defined( Q_OS_MAC) && not defined(_WIN32)
+# if not defined(__APPLE__) && not defined(_WIN32)
   if (this->dummyDisplay)
   {
     glXDestroyContext(static_cast<Display*>(this->dummyDisplay),
@@ -428,6 +421,9 @@ void RenderEngine::LoadPlugins()
 #ifdef __APPLE__
     std::string prefix = "lib";
     std::string extension = ".dylib";
+#elif defined(_WIN32)
+    std::string prefix = "";
+    std::string extension = ".dll";
 #else
     std::string prefix = "";
     std::string extension = ".so";
@@ -678,7 +674,38 @@ void RenderEngine::SetupRenderSystem()
   ///   FBO seem to be the only good option
   renderSys->setConfigOption("RTT Preferred Mode", "FBO");
 
-  renderSys->setConfigOption("FSAA", "4");
+  // get all supported fsaa values
+  Ogre::ConfigOptionMap configMap = renderSys->getConfigOptions();
+  auto fsaaOoption = configMap.find("FSAA");
+
+  if (fsaaOoption != configMap.end())
+  {
+    auto values = (*fsaaOoption).second.possibleValues;
+    for (auto const &str : values)
+    {
+      int value = 0;
+      try
+      {
+        value = std::stoi(str);
+      }
+      catch(...)
+      {
+        continue;
+      }
+      this->dataPtr->fsaaLevels.push_back(value);
+    }
+  }
+  std::sort(this->dataPtr->fsaaLevels.begin(), this->dataPtr->fsaaLevels.end());
+
+  // check if target fsaa is supported
+  unsigned int fsaa = 0;
+  unsigned int targetFSAA = 4;
+  auto const it = std::find(this->dataPtr->fsaaLevels.begin(),
+      this->dataPtr->fsaaLevels.end(), targetFSAA);
+  if (it != this->dataPtr->fsaaLevels.end())
+    fsaa = targetFSAA;
+
+  renderSys->setConfigOption("FSAA", std::to_string(fsaa));
 
   this->dataPtr->root->setRenderSystem(renderSys);
 }
@@ -688,7 +715,7 @@ bool RenderEngine::CreateContext()
 {
   bool result = true;
 
-#if defined Q_OS_MAC || _WIN32
+#if defined __APPLE__ || _WIN32
   this->dummyDisplay = 0;
 #else
   try
@@ -750,6 +777,12 @@ void RenderEngine::CheckSystemCapabilities()
   Ogre::RenderSystemCapabilities::ShaderProfiles::const_iterator iter;
 
   capabilities = this->dataPtr->root->getRenderSystem()->getCapabilities();
+  if (!capabilities)
+  {
+    gzerr << "Cannot get render system capabilities" << std::endl;
+    return;
+  }
+
   profiles = capabilities->getSupportedShaderProfiles();
 
   bool hasFragmentPrograms =
@@ -808,13 +841,13 @@ Ogre::Root *RenderEngine::Root() const
   return this->dataPtr->root;
 }
 
-#if (OGRE_VERSION >= ((1 << 16) | (9 << 8) | 0))
 /////////////////////////////////////////////////
-Ogre::OverlaySystem *RenderEngine::GetOverlaySystem() const
+std::vector<unsigned int> RenderEngine::FSAALevels() const
 {
-  return this->OverlaySystem();
+  return this->dataPtr->fsaaLevels;
 }
 
+#if (OGRE_VERSION >= ((1 << 16) | (9 << 8) | 0))
 /////////////////////////////////////////////////
 Ogre::OverlaySystem *RenderEngine::OverlaySystem() const
 {

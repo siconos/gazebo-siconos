@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2016 Open Source Robotics Foundation
+ * Copyright (C) 2013 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,10 @@ namespace gazebo
       /// \param[in] _name Name of model.
       public: void SetName(const std::string &_name);
 
+      /// \brief Get the unscoped name of the model.
+      /// \return Name of model.
+      public: std::string Name() const;
+
       /// \brief Set the pose of the model.
       /// \param[in] _pose Pose of model.
       public: void SetPose(const ignition::math::Pose3d &_pose);
@@ -99,7 +103,7 @@ namespace gazebo
 
       /// \brief Get the name of the link.
       /// \return Name of link.
-      public: std::string GetName() const;
+      public: std::string Name() const;
 
       /// \brief Set the name of the link.
       /// \param[in] _name Name of link.
@@ -117,13 +121,24 @@ namespace gazebo
       /// \param[in] _sdf Link SDF element.
       public: void Load(sdf::ElementPtr _sdf);
 
-      /// \brief Get the scale of the link.
-      /// \return Scale of link.
-      public: ignition::math::Vector3d Scale() const;
+      /// \brief Get the scale of all of the link's children.
+      /// \return Scales of visuals and collisions.
+      public: const std::map<std::string, ignition::math::Vector3d> &Scales()
+              const;
 
-      /// \brief Set the scale of the link.
-      /// \param[in] _scale Scale of link.
-      public: void SetScale(const ignition::math::Vector3d &_scale);
+      /// \brief Update the scale of all the inspectors, making the necessary
+      /// conversions to update inertial information.
+      /// The scale is updated based on the current geometry of 3D visuals.
+      /// This does not alter the internal scale value returned by Scale().
+      /// \sa SetScale
+      public: void UpdateInspectorScale();
+
+      /// \brief Set the scales of the link. This function calls
+      /// UpdateInspectorScale.
+      /// \sa UpdateInspectorScale
+      /// \param[in] _scale Scales of all of the link's children.
+      public: void SetScales(
+          const std::map<std::string, ignition::math::Vector3d> &_scales);
 
       /// \brief Add a visual to the link.
       /// \param[in] _visual Visual to be added.
@@ -142,6 +157,42 @@ namespace gazebo
       /// \param[in] _newName Name to give to the cloned link.
       /// \return A clone of this link data.
       public: LinkData *Clone(const std::string &_newName);
+
+      /// \brief Show or hide collision visuals.
+      /// \param[in] _show True to show, false to hide.
+      public slots: void ShowCollisions(const bool _show);
+
+      /// \brief Show or hide visual visuals.
+      /// \param[in] _show True to show, false to hide.
+      public slots: void ShowVisuals(const bool _show);
+
+      /// \brief Show or hide link frame visuals.
+      /// \param[in] _show True to show, false to hide.
+      public slots: void ShowLinkFrame(const bool _show);
+
+      /// \brief Computes the volume of a link.
+      /// \param[in] _collision A collision message.
+      /// \return The computed volume.
+      public: static double ComputeVolume(const msgs::Collision &_collision);
+
+      /// \brief Computes mass moment of inertia for a link.
+      /// \param[in] _collision A collision message.
+      /// \param[in] _mass The mass of the link.
+      /// \return Vector of principal moments of inertia.
+      public: static ignition::math::Vector3d ComputeMomentOfInertia(
+          const msgs::Collision &_collision, const double _mass);
+
+      /// \brief Computes the volume of the link.
+      /// \return The volume.
+      public: double ComputeVolume() const;
+
+      /// \brief Set the visual for the link.
+      /// \param[in] _visual Visual for the link.
+      public: void SetLinkVisual(const rendering::VisualPtr _visual);
+
+      /// \brief Get the visual for the link.
+      /// \return Visual for the link.
+      public: rendering::VisualPtr LinkVisual() const;
 
       /// \brief Update callback on PreRender.
       private: void Update();
@@ -174,6 +225,18 @@ namespace gazebo
       /// \param[in] _name Name of collision.
       private slots: void OnRemoveCollision(const std::string &_name);
 
+      /// \brief Qt callback when a collision is to be shown/hidden.
+      /// \param[in] _show True to show.
+      /// \param[in] _name Name of collision.
+      private slots: void OnShowCollision(const bool _show,
+          const std::string &_name);
+
+      /// \brief Qt callback when a visual is to be shown/hidden.
+      /// \param[in] _show True to show.
+      /// \param[in] _name Name of visual.
+      private slots: void OnShowVisual(const bool _show,
+          const std::string &_name);
+
       /// \brief Qt callback when the inspector is opened.
       private slots: void OnInspectorOpened();
 
@@ -198,11 +261,12 @@ namespace gazebo
       /// \brief Inertia izz.
       private: double inertiaIzz;
 
-      /// \brief Scale of link.
-      public: ignition::math::Vector3d scale;
+      /// \brief Scale of all collisions and visuals in the link, indexed by
+      /// their visual's names.
+      public: std::map<std::string, ignition::math::Vector3d> scales;
 
       /// \brief Visual representing this link.
-      public: rendering::VisualPtr linkVisual;
+      private: rendering::VisualPtr linkVisual;
 
       /// \brief Visuals of the link.
       public: std::map<rendering::VisualPtr, msgs::Visual> visuals;
@@ -222,11 +286,23 @@ namespace gazebo
       /// \brief Deleted collisions of the link.
       public: std::map<rendering::VisualPtr, msgs::Collision> deletedCollisions;
 
+      /// \brief Link frame visual.
+      public: rendering::LinkFrameVisualPtr linkFrameVis;
+
       /// \brief Inspector for configuring link properties.
       public: LinkInspector *inspector;
 
       /// \brief Flag set to true if this is a link of a nested model.
       public: bool nested;
+
+      /// \brief True if all collisions are currently visible, false otherwise.
+      public: bool showCollisions = true;
+
+      /// \brief True if all visuals are currently visible, false otherwise.
+      public: bool showVisuals = true;
+
+      /// \brief True if all link frames are currently visible, false otherwise.
+      public: bool showLinkFrame = true;
     };
 
     /// \brief Helper class to store model plugin data

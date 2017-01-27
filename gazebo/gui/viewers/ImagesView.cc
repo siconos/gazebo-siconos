@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ void ImagesView::OnImages(ConstImagesStampedPtr &_msg)
         frameLayout->itemAtPosition(i / 2, i % 2)->widget());
 
     if (imageFrame)
-        imageFrame->OnImage(_msg->image(i));
+      imageFrame->OnImage(_msg->image(i));
   }
 
   // Update the Hz and Bandwidth info

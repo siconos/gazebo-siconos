@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
  * limitations under the License.
  *
 */
-
-#ifndef _GAZEBO_RENDERING_WIDEANGLECAMERA_HH_
-#define _GAZEBO_RENDERING_WIDEANGLECAMERA_HH_
-
+#ifndef GAZEBO_RENDERING_WIDEANGLECAMERA_HH_
+#define GAZEBO_RENDERING_WIDEANGLECAMERA_HH_
 
 #include <string>
 #include <utility>
@@ -28,16 +26,12 @@
 #include "gazebo/transport/Node.hh"
 #include "gazebo/transport/Subscriber.hh"
 
-#include "gazebo/math/Angle.hh"
-#include "gazebo/math/Pose.hh"
-
 #include "gazebo/rendering/ogre_gazebo.h"
 #include "gazebo/msgs/MessageTypes.hh"
 #include "gazebo/rendering/RenderTypes.hh"
 #include "gazebo/util/system.hh"
 
 #include "gazebo/rendering/Camera.hh"
-
 
 namespace gazebo
 {
@@ -62,7 +56,7 @@ namespace gazebo
       public: CameraLens();
 
       /// \brief Destructor
-      public: ~CameraLens() = default;
+      public: virtual ~CameraLens();
 
       /// \brief Init custom camera lens with specified parameters
       /// \param[in] _c1 Image scaling factor
@@ -195,6 +189,7 @@ namespace gazebo
 
       // Documentation inherited
       public: void Load() override;
+      using Camera::Load;
 
       // Documentation inherited
       public: virtual void Fini() override;
@@ -219,6 +214,10 @@ namespace gazebo
 
       // Documentation inherited
       public: void SetClipDist() override;
+      using Camera::SetClipDist;
+
+      // Documentation inherited
+      public: bool SetBackgroundColor(const common::Color &_color) override;
 
       /// \brief Set the camera's render target
       /// \param[in] _textureName Name used as a base for environment texture
@@ -226,6 +225,9 @@ namespace gazebo
 
       // Documentation inherited
       protected: void RenderImpl() override;
+
+      // Documentation inherited
+      protected: void UpdateFOV() override;
 
       /// \bried Callback that is used to set mapping material uniform values,
       ///   implements Ogre::CompositorInstance::Listener interface
@@ -241,6 +243,4 @@ namespace gazebo
     /// \}
   }
 }
-
-
 #endif

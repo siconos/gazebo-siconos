@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ void SchematicViewWidget::Init()
        boost::bind(&SchematicViewWidget::OnDeselectAll, this, _1, _2)));
 
   this->connections.push_back(
-     gui::model::Events::ConnectSetSelectedLink(
+     gui::model::Events::ConnectSetSelectedEntity(
        boost::bind(&SchematicViewWidget::OnSetSelectedEntity, this, _1, _2)));
 
   this->connections.push_back(
@@ -456,7 +456,7 @@ void SchematicViewWidget::OnSelectionChanged()
       else
         selected = currentlySelected.contains(item);
 
-      gui::model::Events::setSelectedLink(id, selected);
+      gui::model::Events::setSelectedEntity(id, selected);
     }
     else if (type == "Joint")
     {

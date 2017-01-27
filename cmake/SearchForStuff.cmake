@@ -138,21 +138,23 @@ if (PKG_CONFIG_FOUND)
   #list(APPEND CMAKE_MODULE_PATH ${SimTK_INSTALL_PREFIX}/share/cmake)
   find_package(Simbody)
   if (Simbody_FOUND)
+    message (STATUS "Looking for Simbody - found")
     set (HAVE_SIMBODY TRUE)
   else()
+    message (STATUS "Looking for Simbody - not found")
     BUILD_WARNING ("Simbody not found, for simbody physics engine option, please install libsimbody-dev.")
     set (HAVE_SIMBODY FALSE)
   endif()
 
   #################################################
   # Find DART
-  find_package(DARTCore 4.3.3 QUIET)
+  find_package(DARTCore 5.1.1 QUIET)
   if (DARTCore_FOUND)
-    message (STATUS "Looking for DARTCore - found")
+    message (STATUS "Looking for DARTCore - ${DARTCore_VERSION} found")
     set (HAVE_DART TRUE)
   else()
     message (STATUS "Looking for DARTCore - not found")
-    BUILD_WARNING ("DART not found, for dart physics engine option, please install libdart-core4-dev.")
+    BUILD_WARNING ("DART not found, for dart physics engine option, please install libdart-core5-dev.")
     set (HAVE_DART FALSE)
   endif()
 
@@ -197,7 +199,7 @@ if (PKG_CONFIG_FOUND)
   else()
     # Needed in WIN32 since in UNIX the flag is added in the code installed
     message (STATUS "Skipping search for tinyxml")
-    set (tinyxml_INCLUDE_DIRS "")
+    set (tinyxml_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/deps/win/tinyxml")
     set (tinyxml_LIBRARIES "")
     set (tinyxml_LIBRARY_DIRS "")
   endif()
@@ -249,7 +251,7 @@ if (PKG_CONFIG_FOUND)
   else()
     # Needed in WIN32 since in UNIX the flag is added in the code installed
     message (STATUS "Skipping search for tinyxml2")
-    set (tinyxml2_INCLUDE_DIRS "")
+    set (tinyxml2_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/deps/tinyxml2")
     set (tinyxml2_LIBRARIES "")
     set (tinyxml2_LIBRARY_DIRS "")
   endif()
@@ -416,6 +418,24 @@ if (PKG_CONFIG_FOUND)
   endif ()
 
   ########################################
+  # Find AV device. Only check for this on linux.
+  if (UNIX)
+    pkg_check_modules(libavdevice libavdevice>=56.4.100)
+    if (NOT libavdevice_FOUND)
+      BUILD_WARNING ("libavdevice not found. Recording to a video device will be disabled.")
+    else()
+      include_directories(${libavdevice_INCLUDE_DIRS})
+      link_directories(${libavdevice_LIBRARY_DIRS})
+    endif ()
+  endif ()
+
+  if (NOT libavdevice_FOUND)
+    set (HAVE_AVDEVICE False)
+  else()
+    set (HAVE_AVDEVICE True)
+  endif()
+
+  ########################################
   # Find AV format
   pkg_check_modules(libavformat libavformat)
   if (NOT libavformat_FOUND)
@@ -442,8 +462,8 @@ if (PKG_CONFIG_FOUND)
     BUILD_WARNING ("libavutil not found. Audio-video capabilities will be disabled.")
   endif ()
 
-
-  if (libavutil_FOUND AND libavformat_FOUND AND libavcodec_FOUND AND libswscale_FOUND)
+  if (libavutil_FOUND AND libavformat_FOUND AND libavcodec_FOUND AND
+      libswscale_FOUND)
     set (HAVE_FFMPEG TRUE)
   else ()
     set (HAVE_FFMPEG FALSE)
@@ -532,7 +552,7 @@ endif ()
 
 ########################################
 # Find SDFormat
-set (SDFormat_MIN_VERSION 4.1.0)
+set (SDFormat_MIN_VERSION 5.0.0)
 find_package(SDFormat ${SDFormat_MIN_VERSION})
 
 if (NOT SDFormat_FOUND)
@@ -544,9 +564,24 @@ endif()
 
 ########################################
 # Find QT
-find_package(Qt4 COMPONENTS QtWebKit QtCore QtGui QtXml QtXmlPatterns REQUIRED)
-if (NOT QT4_FOUND)
-  BUILD_ERROR("Missing: Qt4")
+find_package (Qt5Widgets)
+if (NOT Qt5Widgets_FOUND)
+  BUILD_ERROR("Missing: Qt5Widgets")
+endif()
+
+find_package (Qt5Core)
+if (NOT Qt5Core_FOUND)
+  BUILD_ERROR("Missing: Qt5Core")
+endif()
+
+find_package (Qt5OpenGL)
+if (NOT Qt5OpenGL_FOUND)
+  BUILD_ERROR("Missing: Qt5OpenGL")
+endif()
+
+find_package (Qt5Test)
+if (NOT Qt5Test_FOUND)
+  BUILD_ERROR("Missing: Qt5Test")
 endif()
 
 ########################################
@@ -658,30 +693,38 @@ else ()
 endif ()
 
 ########################################
-# Find ignition math in unix platforms
-# In Windows we expect a call from configure.bat script with the paths
-if (NOT WIN32)
-  find_package(ignition-math2 QUIET)
-  if (NOT ignition-math2_FOUND)
-    message(STATUS "Looking for ignition-math2-config.cmake - not found")
-    BUILD_ERROR ("Missing: Ignition math2 library.")
-  else()
-    message(STATUS "Looking for ignition-math2-config.cmake - found")
-  endif()
+# Find ignition msgs
+find_package(ignition-msgs0 0.4 QUIET)
+if (NOT ignition-msgs0_FOUND)
+  message(STATUS "Looking for ignition-msgs0-config.cmake - not found")
+  BUILD_ERROR ("Missing: Ignition msgs0 library.")
+else()
+  message(STATUS "Looking for ignition-msgs0-config.cmake - found")
+  include_directories(${IGNITION-MSGS_INCLUDE_DIRS})
+  link_directories(${IGNITION-MSGS_LIBRARY_DIRS})
+endif()
+
+########################################
+# Find ignition math library
+find_package(ignition-math3 QUIET)
+if (NOT ignition-math3_FOUND)
+  message(STATUS "Looking for ignition-math3-config.cmake - not found")
+  BUILD_ERROR ("Missing: Ignition math (libignition-math3-dev)")
+else()
+  message(STATUS "Looking for ignition-math3-config.cmake - found")
 endif()
 
 ########################################
 # Find the Ignition_Transport library
-# In Windows we expect a call from configure.bat script with the paths
-if (NOT WIN32)
-  find_package(ignition-transport0 QUIET)
-  if (NOT ignition-transport0_FOUND)
-    BUILD_WARNING ("Missing: Ignition Transport (libignition-transport0-dev)")
-  else()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNITION-TRANSPORT_CXX_FLAGS}")
-    include_directories(${IGNITION-TRANSPORT_INCLUDE_DIRS})
-    link_directories(${IGNITION-TRANSPORT_LIBRARY_DIRS})
-  endif()
+find_package(ignition-transport3 QUIET)
+if (NOT ignition-transport3_FOUND)
+  BUILD_ERROR ("Missing: Ignition Transport (libignition-transport3-dev)")
+else()
+  message(STATUS "Looking for ignition-transport3-config.cmake - found")
+
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNITION-TRANSPORT_CXX_FLAGS}")
+  include_directories(${IGNITION-TRANSPORT_INCLUDE_DIRS})
+  link_directories(${IGNITION-TRANSPORT_LIBRARY_DIRS})
 endif()
 
 ################################################
@@ -694,34 +737,61 @@ if (GAZEBO_RUN_VALGRIND_TESTS AND NOT VALGRIND_PROGRAM)
   BUILD_WARNING("valgrind not found. Memory check tests will be skipped.")
 endif()
 
+########################################
+# Find OSVR SDK
+find_library(OSVR_CLIENTKIT_LIBRARY NAMES osvrClientKit)
+find_file(OSVR_CLIENTKIT_HEADER NAMES osvr/ClientKit/ClientKit.h)
+if (OSVR_CLIENTKIT_LIBRARY AND OSVR_CLIENTKIT_HEADER)
+  message(STATUS "Looking for libosvrClientKit and ClientKit.h - found")
+  set(HAVE_OSVR TRUE)
+else()
+  message(STATUS "Looking for libosvrClientKit and ClientKit.h - not found")
+  BUILD_WARNING("OpenSource Virtual Reality (OSVR) support will be disabled.")
+  set(HAVE_OSVR FALSE)
+endif()
 
 ########################################
 # Find QWT (QT graphing library)
-#find_path(QWT_INCLUDE_DIR NAMES qwt.h PATHS
-#  /usr/include
-#  /usr/local/include
-#  "$ENV{LIB_DIR}/include"
-#  "$ENV{INCLUDE}"
-#  PATH_SUFFIXES qwt-qt4 qwt qwt5
-#  )
-#
-#find_library(QWT_LIBRARY NAMES qwt qwt6 qwt5 PATHS
-#  /usr/lib
-#  /usr/local/lib
-#  "$ENV{LIB_DIR}/lib"
-#  "$ENV{LIB}/lib"
-#  )
-#
-#if (QWT_INCLUDE_DIR AND QWT_LIBRARY)
-#  set(HAVE_QWT TRUE)
-#endif (QWT_INCLUDE_DIR AND QWT_LIBRARY)
-#
-#if (HAVE_QWT)
-#  if (NOT QWT_FIND_QUIETLY)
-#    message(STATUS "Found Qwt: ${QWT_LIBRARY}")
-#  endif (NOT QWT_FIND_QUIETLY)
-#else ()
-#  if (QWT_FIND_REQUIRED)
-#    BUILD_WARNING ("Could not find libqwt-dev. Plotting features will be disabled.")
-#  endif (QWT_FIND_REQUIRED)
-#endif ()
+find_path(QWT_INCLUDE_DIR NAMES qwt.h PATHS
+  /usr/include
+  /usr/local/include
+  /usr/local/lib/qwt.framework/Headers
+  ${QWT_WIN_INCLUDE_DIR}
+
+  PATH_SUFFIXES qwt qwt5
+)
+
+find_library(QWT_LIBRARY NAMES qwt-qt5 qwt PATHS
+  /usr/lib
+  /usr/local/lib
+  /usr/local/lib/qwt.framework
+  ${QWT_WIN_LIBRARY_DIR}
+)
+
+# version
+set ( _VERSION_FILE ${QWT_INCLUDE_DIR}/qwt_global.h )
+file ( STRINGS ${_VERSION_FILE} _VERSION_LINE REGEX "define[ ]+QWT_VERSION_STR" )
+if ( _VERSION_LINE )
+  string ( REGEX REPLACE ".*define[ ]+QWT_VERSION_STR[ ]+\"(.*)\".*" "\\1"
+      QWT_VERSION_STRING "${_VERSION_LINE}" )
+  string ( REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1"
+      QWT_MAJOR_VERSION "${QWT_VERSION_STRING}" )
+  string ( REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\2"
+      QWT_MINOR_VERSION "${QWT_VERSION_STRING}" )
+  string ( REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\3"
+      QWT_PATCH_VERSION "${QWT_VERSION_STRING}" )
+  set(QWT_VERSION
+    ${QWT_MAJOR_VERSION}.${QWT_MINOR_VERSION}.${QWT_PATCH_VERSION})
+endif ()
+
+# in Windows, the path need to point to the parent to get correct qwt/foo headers
+if (WIN32)
+  SET(QWT_INCLUDE_DIR "${QWT_INCLUDE_DIR}\\..")
+endif()
+
+if (QWT_INCLUDE_DIR AND QWT_LIBRARY AND (NOT ${QWT_VERSION} VERSION_LESS 6.1.0))
+  message (STATUS "Looking for qwt - found: version ${QWT_VERSION}")
+else()
+  message (STATUS "Looking for qwt >= 6.1.0 - not found")
+  BUILD_ERROR ("Missing: libqwt-dev. Required for plotting.")
+endif ()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Open Source Robotics Foundation
+ * Copyright (C) 2014 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  *
 */
 
+#include <functional>
+
 #include "SimStateEventSource.hh"
 
 using namespace gazebo;
@@ -29,7 +31,7 @@ SimStateEventSource::SimStateEventSource(transport::PublisherPtr _pub,
 ////////////////////////////////////////////////////////////////////////////////
 SimStateEventSource::~SimStateEventSource()
 {
-  event::Events::DisconnectPause(this->pauseConnection);
+  this->pauseConnection.reset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,12 +42,12 @@ void SimStateEventSource::Load(const sdf::ElementPtr _sdf)
   // Listen to the pause event. This event is broadcast every
   // simulation iteration.
   this->pauseConnection = event::Events::ConnectPause(
-      boost::bind(&SimStateEventSource::OnPause, this, _1));
+      std::bind(&SimStateEventSource::OnPause, this, std::placeholders::_1));
 
   // Listen to the update event. This event is broadcast every
   // simulation iteration.
   this->updateConnection = event::Events::ConnectWorldUpdateBegin(
-      boost::bind(&SimStateEventSource::OnUpdate, this, _1));
+      std::bind(&SimStateEventSource::OnUpdate, this, std::placeholders::_1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

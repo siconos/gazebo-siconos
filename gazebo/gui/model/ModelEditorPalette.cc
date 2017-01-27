@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Open Source Robotics Foundation
+ * Copyright (C) 2014 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ ModelEditorPalette::ModelEditorPalette(QWidget *_parent)
 
   // Cylinder button
   QToolButton *cylinderButton = new QToolButton(this);
+  cylinderButton->setObjectName("modelEditorPaletteCylinderButton");
   cylinderButton->setFixedSize(toolButtonSize);
   cylinderButton->setToolTip(tr("Cylinder"));
   cylinderButton->setIcon(QPixmap(":/images/cylinder.png"));
@@ -88,6 +89,7 @@ ModelEditorPalette::ModelEditorPalette(QWidget *_parent)
 
   // Sphere button
   QToolButton *sphereButton = new QToolButton(this);
+  sphereButton->setObjectName("modelEditorPaletteSphereButton");
   sphereButton->setFixedSize(toolButtonSize);
   sphereButton->setToolTip(tr("Sphere"));
   sphereButton->setIcon(QPixmap(":/images/sphere.png"));
@@ -100,6 +102,7 @@ ModelEditorPalette::ModelEditorPalette(QWidget *_parent)
 
   // Box button
   QToolButton *boxButton = new QToolButton(this);
+  boxButton->setObjectName("modelEditorPaletteBoxButton");
   boxButton->setFixedSize(toolButtonSize);
   boxButton->setToolTip(tr("Box"));
   boxButton->setIcon(QPixmap(":/images/box.png"));
@@ -218,14 +221,14 @@ void ModelEditorPalette::OnCustom()
     {
       event::Events::setSelectedEntity("", "normal");
       g_arrowAct->trigger();
-      if (info.completeSuffix().toLower() == "dae" ||
-          info.completeSuffix().toLower() == "stl")
+      auto suffix = info.completeSuffix().toLower().toStdString();
+      if (suffix == "dae" || suffix == "stl" || suffix == "obj")
       {
         this->dataPtr->modelCreator->AddCustomLink(ModelCreator::ENTITY_MESH,
             ignition::math::Vector3d::One, ignition::math::Pose3d::Zero,
             importDialog.GetImportPath());
       }
-      else if (info.completeSuffix().toLower() == "svg")
+      else if (suffix == "svg")
       {
         ExtrudeDialog extrudeDialog(importDialog.GetImportPath(), this);
         extrudeDialog.deleteLater();

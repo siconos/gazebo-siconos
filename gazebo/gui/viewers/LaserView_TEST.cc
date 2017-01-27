@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  *
 */
 
-#include "gazebo/math/Rand.hh"
+#include <ignition/math/Rand.hh>
 #include "gazebo/gui/viewers/LaserView_TEST.hh"
 
 /////////////////////////////////////////////////
@@ -43,7 +43,7 @@ void LaserView_TEST::Construction()
   // Spin the Qt update loop for a while to process events.
   for (int j = 0; j < 50; ++j)
   {
-    gazebo::common::Time::MSleep(gazebo::math::Rand::GetIntUniform(10, 50));
+    gazebo::common::Time::MSleep(ignition::math::Rand::IntUniform(10, 50));
     QCoreApplication::processEvents();
   }
 

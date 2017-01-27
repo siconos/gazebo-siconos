@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,6 +165,13 @@ bool Server::ParseArgs(int _argc, char **_argv)
 
   po::options_description hiddenDesc("Hidden options");
   hiddenDesc.add_options()
+    // This is a bit of a hack. The server assumes the last item on the
+    // command (if present) is a world file. A problem arises with:
+    //     gazebo -g <some_gui_plugin.so>
+    // Without this hidden option, the server would try to load
+    // <some_gui_plugin.so> as a world file.
+    ("gui-plugin,g", po::value<std::vector<std::string> >(),
+     "Gui plugin ignored.")
     ("world_file", po::value<std::string>(), "SDF world to load.")
     ("pass_through", po::value<std::vector<std::string> >(),
      "not used, passed through to system plugins.");
@@ -219,7 +226,14 @@ bool Server::ParseArgs(int _argc, char **_argv)
   {
     try
     {
+#ifndef _WIN32
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
       math::Rand::SetSeed(this->dataPtr->vm["seed"].as<double>());
+#ifndef _WIN32
+# pragma GCC diagnostic pop
+#endif
       ignition::math::Rand::Seed(this->dataPtr->vm["seed"].as<double>());
     }
     catch(boost::bad_any_cast &_e)
@@ -324,14 +338,18 @@ bool Server::ParseArgs(int _argc, char **_argv)
 
     // Load the server
     if (!this->LoadFile(configFilename, physics))
-      return false;
+    {
+      gzwarn << "Falling back on worlds/empty.world\n";
+      if (!this->LoadFile("worlds/empty.world", physics))
+        return false;
+    }
 
     if (this->dataPtr->vm.count("profile"))
     {
       std::string profileName = this->dataPtr->vm["profile"].as<std::string>();
-      if (physics::get_world()->GetPresetManager()->HasProfile(profileName))
+      if (physics::get_world()->PresetMgr()->HasProfile(profileName))
       {
-        physics::get_world()->GetPresetManager()->CurrentProfile(profileName);
+        physics::get_world()->PresetMgr()->CurrentProfile(profileName);
         gzmsg << "Setting physics profile to [" << profileName << "]."
               << std::endl;
       }

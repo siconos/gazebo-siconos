@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  *
 */
-
-#ifndef _GAZEBO_GUI_LINK_INSPECTOR_HH_
-#define _GAZEBO_GUI_LINK_INSPECTOR_HH_
+#ifndef GAZEBO_GUI_MODEL_LINKINSPECTOR_HH_
+#define GAZEBO_GUI_MODEL_LINKINSPECTOR_HH_
 
 #include <memory>
 #include <string>
+
+#include <ignition/math/Vector3.hh>
 
 #include "gazebo/gui/qt.h"
 #include "gazebo/util/system.hh"
@@ -73,9 +74,31 @@ namespace gazebo
       /// \brief Open the inspector.
       public: void Open();
 
+      /// \brief Set the state of show collisions button.
+      /// \param[in] _show If true, button is checked.
+      public: void SetShowCollisions(const bool _show);
+
+      /// \brief Set the state of show visuals button.
+      /// \param[in] _show If true, button is checked.
+      public: void SetShowVisuals(const bool _show);
+
+      /// \brief Set the state of show link frame button.
+      /// \param[in] _show If true, button is checked.
+      public: void SetShowLinkFrame(const bool _show);
+
       /// \brief Qt event emiited when the mouse enters this widget.
       /// \param[in] _event Qt event.
       protected: virtual void enterEvent(QEvent *_event);
+
+      /// \brief Computes volume of associated link.
+      /// \return The volume.
+      private: double ComputeVolume() const;
+
+      /// \brief Computes mass moment of inertia of associated link.
+      /// \param[in] _mass Mass of the link.
+      /// \return Vector containing principal moments of inertia.
+      private: ignition::math::Vector3d ComputeInertia(
+          const double _mass) const;
 
       /// \brief Set the item name.
       /// \param[in] _name Name to set to.
@@ -91,8 +114,35 @@ namespace gazebo
       /// and the inspector closed.
       Q_SIGNALS: void Accepted();
 
+      /// \brief Qt signal emitted to indicate that all collisions should be
+      /// shown/hidden.
+      /// \param[in] _show True to show.
+      Q_SIGNALS: void ShowCollisions(const bool _show);
+
+      /// \brief Qt signal emitted to indicate that all visuals should be
+      /// shown/hidden.
+      /// \param[in] _show True to show.
+      Q_SIGNALS: void ShowVisuals(const bool _show);
+
+      /// \brief Qt signal emitted to indicate that link frame should be
+      /// shown/hidden.
+      /// \param[in] _show True to show.
+      Q_SIGNALS: void ShowLinkFrame(const bool _show);
+
       /// \brief Qt callback when the Remove button is pressed.
       private slots: void OnRemove();
+
+      /// \brief Qt callback when the show collisions button is pressed.
+      /// \param[in] _show Show if checked, hide otherwise.
+      private slots: void OnShowCollisions(const bool _show);
+
+      /// \brief Qt callback when the show visuals button is pressed.
+      /// \param[in] _show Show if checked, hide otherwise.
+      private slots: void OnShowVisuals(const bool _show);
+
+      /// \brief Qt callback when the show link frame button is pressed.
+      /// \param[in] _show Show if checked, hide otherwise.
+      private slots: void OnShowLinkFrame(const bool _show);
 
       /// \brief Qt callback when the Cancel button is pressed.
       private slots: void OnCancel();
@@ -103,12 +153,30 @@ namespace gazebo
       /// \brief Qt callback when one of the child configs has been applied.
       private slots: void OnConfigApplied();
 
+      /// \brief Callback for density changes in link config.
+      /// \param[in] _value The new density value.
+      private slots: void OnDensityValueChanged(const double _value);
+
+      /// \brief Callback for mass changes in link config.
+      /// \param[in] _value The new mass value.
+      private slots: void OnMassValueChanged(const double _value);
+
+      /// \brief Callback for changes to collisions.
+      /// \param[in] _name Name of the collision.
+      /// \param[in] _type Type of change (eg, "geometry", etc).
+      private slots: void OnCollisionChanged(const std::string &_name,
+          const std::string &_type);
+
       /// \brief Restore the widget's data to how it was when first opened.
       private slots: void RestoreOriginalData();
 
       /// \brief Qt key press event.
       /// \param[in] _event Qt key event.
       private: void keyPressEvent(QKeyEvent *_event);
+
+      /// \brief Qt close event
+      /// \param[in] _event Qt close event pointer
+      private: void closeEvent(QCloseEvent *_event);
 
       /// \internal
       /// \brief Pointer to private data.

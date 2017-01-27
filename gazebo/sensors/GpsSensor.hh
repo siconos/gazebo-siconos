@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
 #include <ignition/math/Angle.hh>
 #include <sdf/sdf.hh>
 
-#include "gazebo/common/CommonTypes.hh"
 #include "gazebo/sensors/Sensor.hh"
 #include "gazebo/sensors/SensorTypes.hh"
 #include "gazebo/util/system.hh"
@@ -71,11 +70,6 @@ namespace gazebo
       /// \brief Accessor for current latitude angle
       /// \return Current latitude angle.
       public: ignition::math::Angle Latitude() const;
-
-      /// \brief Accessor for current altitude
-      /// \return Current altitude above sea level.
-      /// \deprecated See Altitude()
-      public: double GetAltitude() const GAZEBO_DEPRECATED(7.0);
 
       /// \brief Accessor for current altitude
       /// \return Current altitude above sea level.

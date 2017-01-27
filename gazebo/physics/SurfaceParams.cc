@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *
 */
 
+#include <ignition/math/Helpers.hh>
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
 #include "gazebo/physics/SurfaceParams.hh"
@@ -38,18 +39,6 @@ FrictionPyramid::FrictionPyramid()
 //////////////////////////////////////////////////
 FrictionPyramid::~FrictionPyramid()
 {
-}
-
-//////////////////////////////////////////////////
-double FrictionPyramid::GetMuPrimary()
-{
-  return this->Mu(0);
-}
-
-//////////////////////////////////////////////////
-double FrictionPyramid::GetMuSecondary()
-{
-  return this->Mu(1);
 }
 
 //////////////////////////////////////////////////
@@ -183,7 +172,7 @@ void FrictionPyramid::SetMu(unsigned int _index, double _mu)
   GZ_ASSERT(_index < 3, "Invalid _index to SetMu");
   if (_mu < 0)
   {
-    this->mu[_index] = GZ_FLT_MAX;
+    this->mu[_index] = ignition::math::MAX_F;
   }
   else
   {
@@ -247,12 +236,6 @@ void SurfaceParams::ProcessMsg(const msgs::Surface &_msg)
     this->collideWithoutContactBitmask = _msg.collide_without_contact_bitmask();
   if (_msg.has_collide_bitmask())
     this->collideBitmask = _msg.collide_bitmask();
-}
-
-/////////////////////////////////////////////////
-FrictionPyramidPtr SurfaceParams::GetFrictionPyramid() const
-{
-  return FrictionPyramidPtr();
 }
 
 /////////////////////////////////////////////////

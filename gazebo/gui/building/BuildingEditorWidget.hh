@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  *
 */
-
-#ifndef _GAZEBO_GUI_BUILDING_EDITOR_WIDGET_HH_
-#define _GAZEBO_GUI_BUILDING_EDITOR_WIDGET_HH_
+#ifndef GAZEBO_GUI_BUILDING_BUILDINGEDITORWIDGET_HH_
+#define GAZEBO_GUI_BUILDING_BUILDINGEDITORWIDGET_HH_
 
 #include <memory>
 
@@ -44,7 +43,7 @@ namespace gazebo
       public: BuildingEditorWidget(QWidget *_parent = 0);
 
       /// \brief Destructor
-      public: ~BuildingEditorWidget() = default;
+      public: ~BuildingEditorWidget();
 
       /// \brief Qt event received when the widget is being resized
       /// \param[in] _event Resize event.

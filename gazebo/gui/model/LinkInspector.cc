@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,27 +62,69 @@ LinkInspector::LinkInspector(QWidget *_parent) : QDialog(_parent),
   this->dataPtr->tabWidget->addTab(this->dataPtr->visualConfig, "Visual");
   this->dataPtr->tabWidget->addTab(this->dataPtr->collisionConfig, "Collision");
 
-  // Buttons
+  // Show collisions button
+  auto showCollisionsButton = new QToolButton(this);
+  showCollisionsButton->setObjectName("showCollisionsButton");
+  showCollisionsButton->setFixedSize(QSize(40, 40));
+  showCollisionsButton->setToolTip("Show/hide all collisions");
+  showCollisionsButton->setIcon(QPixmap(":/images/eye_collision.svg"));
+  showCollisionsButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  showCollisionsButton->setIconSize(QSize(25, 25));
+  showCollisionsButton->setCheckable(true);
+  this->connect(showCollisionsButton, SIGNAL(toggled(const bool)), this,
+      SLOT(OnShowCollisions(const bool)));
+
+  // Show visuals button
+  auto showVisualsButton = new QToolButton(this);
+  showVisualsButton->setObjectName("showVisualsButton");
+  showVisualsButton->setFixedSize(QSize(40, 40));
+  showVisualsButton->setToolTip("Show/hide all visuals");
+  showVisualsButton->setIcon(QPixmap(":/images/eye_visual.svg"));
+  showVisualsButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  showVisualsButton->setIconSize(QSize(25, 25));
+  showVisualsButton->setCheckable(true);
+  this->connect(showVisualsButton, SIGNAL(toggled(const bool)), this,
+      SLOT(OnShowVisuals(const bool)));
+
+  // Show link frame button
+  auto showLinkFrameButton = new QToolButton(this);
+  showLinkFrameButton->setObjectName("showLinkFrameButton");
+  showLinkFrameButton->setFixedSize(QSize(40, 40));
+  showLinkFrameButton->setToolTip("Show/hide link frame");
+  showLinkFrameButton->setIcon(QPixmap(":/images/eye_frame.svg"));
+  showLinkFrameButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  showLinkFrameButton->setIconSize(QSize(25, 25));
+  showLinkFrameButton->setCheckable(true);
+  this->connect(showLinkFrameButton, SIGNAL(toggled(const bool)), this,
+      SLOT(OnShowLinkFrame(const bool)));
+
+  // Remove button
   QToolButton *removeButton = new QToolButton(this);
-  removeButton->setFixedSize(QSize(30, 30));
+  removeButton->setFixedSize(QSize(40, 40));
   removeButton->setToolTip("Remove link");
   removeButton->setIcon(QPixmap(":/images/trashcan.png"));
   removeButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
-  removeButton->setIconSize(QSize(16, 16));
+  removeButton->setIconSize(QSize(25, 25));
   removeButton->setCheckable(false);
   connect(removeButton, SIGNAL(clicked()), this, SLOT(OnRemove()));
 
+  // Reset button
   QPushButton *resetButton = new QPushButton(tr("Reset"));
   connect(resetButton, SIGNAL(clicked()), this, SLOT(RestoreOriginalData()));
 
+  // Cancel button
   QPushButton *cancelButton = new QPushButton(tr("Cancel"));
   connect(cancelButton, SIGNAL(clicked()), this, SLOT(OnCancel()));
 
+  // Ok button
   QPushButton *OKButton = new QPushButton(tr("OK"));
   connect(OKButton, SIGNAL(clicked()), this, SLOT(OnOK()));
 
   QHBoxLayout *buttonsLayout = new QHBoxLayout;
   buttonsLayout->addWidget(removeButton);
+  buttonsLayout->addWidget(showLinkFrameButton);
+  buttonsLayout->addWidget(showVisualsButton);
+  buttonsLayout->addWidget(showCollisionsButton);
   buttonsLayout->addStretch(5);
   buttonsLayout->addWidget(resetButton);
   buttonsLayout->addWidget(cancelButton);
@@ -96,7 +138,20 @@ LinkInspector::LinkInspector(QWidget *_parent) : QDialog(_parent),
   this->setLayout(mainLayout);
 
   // Conections
-  connect(this, SIGNAL(rejected()), this, SLOT(RestoreOriginalData()));
+  this->connect(this, SIGNAL(rejected()), this, SLOT(RestoreOriginalData()));
+
+  this->connect(this->dataPtr->linkConfig,
+      SIGNAL(DensityValueChanged(const double &)),
+      this, SLOT(OnDensityValueChanged(const double &)));
+
+  this->connect(this->dataPtr->linkConfig,
+      SIGNAL(MassValueChanged(const double &)),
+      this, SLOT(OnMassValueChanged(const double &)));
+
+  this->connect(this->dataPtr->collisionConfig,
+      SIGNAL(CollisionChanged(const std::string &, const std::string &)),
+      this,
+      SLOT(OnCollisionChanged(const std::string &, const std::string &)));
 }
 
 /////////////////////////////////////////////////
@@ -143,9 +198,54 @@ void LinkInspector::OnRemove()
 }
 
 /////////////////////////////////////////////////
+void LinkInspector::OnShowCollisions(const bool _show)
+{
+  this->ShowCollisions(_show);
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::SetShowCollisions(const bool _show)
+{
+  auto button = this->findChild<QToolButton *>("showCollisionsButton");
+
+  if (button)
+    button->setChecked(_show);
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::OnShowVisuals(const bool _show)
+{
+  this->ShowVisuals(_show);
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::SetShowVisuals(const bool _show)
+{
+  auto button = this->findChild<QToolButton *>("showVisualsButton");
+
+  if (button)
+    button->setChecked(_show);
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::OnShowLinkFrame(const bool _show)
+{
+  this->ShowLinkFrame(_show);
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::SetShowLinkFrame(const bool _show)
+{
+  auto button = this->findChild<QToolButton *>("showLinkFrameButton");
+
+  if (button)
+    button->setChecked(_show);
+}
+
+/////////////////////////////////////////////////
 void LinkInspector::OnCancel()
 {
-  this->close();
+  this->reject();
 }
 
 /////////////////////////////////////////////////
@@ -202,4 +302,93 @@ void LinkInspector::keyPressEvent(QKeyEvent *_event)
     _event->accept();
   else
     QDialog::keyPressEvent(_event);
+}
+
+/////////////////////////////////////////////////
+double LinkInspector::ComputeVolume() const
+{
+  double volume = 0;
+
+  for (auto it : this->dataPtr->collisionConfig->ConfigData())
+  {
+    msgs::Collision *coll =
+        this->dataPtr->collisionConfig->GetData(it.second->name);
+    if (coll)
+      volume += LinkData::ComputeVolume(*coll);
+  }
+  return volume;
+}
+
+/////////////////////////////////////////////////
+ignition::math::Vector3d LinkInspector::ComputeInertia(const double _mass) const
+{
+  ignition::math::Vector3d I = ignition::math::Vector3d::Zero;
+
+  // Use first collision entry
+  for (auto it : this->dataPtr->collisionConfig->ConfigData())
+  {
+    msgs::Collision *coll =
+        this->dataPtr->collisionConfig->GetData(it.second->name);
+    if (coll)
+    {
+      I = gui::LinkData::ComputeMomentOfInertia(*coll, _mass);
+      break;
+    }
+  }
+  return I;
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::OnDensityValueChanged(const double _value)
+{
+  double volume = this->ComputeVolume();
+  double mass = volume * _value;
+
+  if (!ignition::math::equal(this->dataPtr->linkConfig->Mass(), mass))
+  {
+    ignition::math::Vector3d I = this->ComputeInertia(mass);
+    this->dataPtr->linkConfig->SetMass(mass);
+    this->dataPtr->linkConfig->SetInertiaMatrix(I.X(), I.Y(), I.Z(), 0, 0, 0);
+  }
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::OnMassValueChanged(const double _value)
+{
+  double volume = this->ComputeVolume();
+
+  if (volume > 0.0)
+  {
+    double density = _value / volume;
+    if (!ignition::math::equal(this->dataPtr->linkConfig->Density(), density))
+    {
+      ignition::math::Vector3d I = ComputeInertia(_value);
+      this->dataPtr->linkConfig->SetDensity(density);
+      this->dataPtr->linkConfig->SetInertiaMatrix(I.X(), I.Y(), I.Z(), 0, 0, 0);
+    }
+  }
+}
+
+/////////////////////////////////////////////////
+void LinkInspector::OnCollisionChanged(const std::string &/*_name*/,
+    const std::string &_type)
+{
+  if (_type == "geometry")
+  {
+    double volume = this->ComputeVolume();
+
+    if (volume > 0.0)
+    {
+      double mass = this->dataPtr->linkConfig->Mass();
+      double density = mass / volume;
+
+      this->dataPtr->linkConfig->SetDensity(density);
+    }
+  }
+}
+
+////////////////////////////////////////////////
+void LinkInspector::closeEvent(QCloseEvent *_event)
+{
+  _event->accept();
 }

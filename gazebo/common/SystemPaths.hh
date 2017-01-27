@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,17 +85,17 @@ namespace gazebo
       /// Returns the default path suitable for temporary files.
       /// \return a full path name to directory.
       /// E.g.: /tmp (Linux).
-      public: std::string GetTmpPath();
+      public: const std::string &TmpPath() const;
 
       /// Returns a unique temporary file for this instance of SystemPath.
       /// \return a full path name to directory.
       /// E.g.: /tmp/gazebo_234123 (Linux).
-      public: std::string GetTmpInstancePath();
+      public: const std::string &TmpInstancePath() const;
 
       /// Returns the default temporary test path.
       /// \return a full path name to directory.
       /// E.g.: /tmp/gazebo_test (Linux).
-      public: std::string GetDefaultTestPath();
+      public: std::string DefaultTestPath() const;
 
       /// \brief Find a file or path using a URI
       /// \param[in] _uri the uniform resource identifier

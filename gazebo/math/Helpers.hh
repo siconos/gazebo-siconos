@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,33 +25,34 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include "gazebo/util/system.hh"
 
 /// \brief Double maximum value
-#define GZ_DBL_MAX std::numeric_limits<double>::max()
+#define GZ_DBL_MAX gazebo::math::MAX_D
 
 /// \brief Double min value
-#define GZ_DBL_MIN std::numeric_limits<double>::min()
+#define GZ_DBL_MIN gazebo::math::MIN_D
 
 /// \brief Double positive infinite value
-#define GZ_DBL_INF std::numeric_limits<double>::infinity()
+#define GZ_DBL_INF gazebo::math::INF_D
 
 /// \brief Float maximum value
-#define GZ_FLT_MAX std::numeric_limits<float>::max()
+#define GZ_FLT_MAX gazebo::math::MAX_F
 
 /// \brief Float minimum value
-#define GZ_FLT_MIN std::numeric_limits<float>::min()
+#define GZ_FLT_MIN gazebo::math::MIN_F
 
 /// \brief 32bit unsigned integer maximum value
-#define GZ_UINT32_MAX std::numeric_limits<uint32_t>::max()
+#define GZ_UINT32_MAX gazebo::math::MAX_UI32
 
 /// \brief 32bit unsigned integer minimum value
-#define GZ_UINT32_MIN std::numeric_limits<uint32_t>::min()
+#define GZ_UINT32_MIN gazebo::math::MIN_UI32
 
 /// \brief 32bit integer maximum value
-#define GZ_INT32_MAX std::numeric_limits<int32_t>::max()
+#define GZ_INT32_MAX gazebo::math::MAX_I32
 
 /// \brief 32bit integer minimum value
-#define GZ_INT32_MIN std::numeric_limits<int32_t>::min()
+#define GZ_INT32_MIN gazebo::math::MIN_I32
 
 
 namespace gazebo
@@ -63,18 +64,70 @@ namespace gazebo
     ///        functions.
     /// \{
 
-    /// \brief Returns the representation of a quiet not a number (NAN)
-    static const double NAN_D = std::numeric_limits<double>::quiet_NaN();
+    /// \brief Double maximum value. This value will be similar to 1.79769e+308
+    static const double
+    GAZEBO_DEPRECATED(8.0)
+    MAX_D = std::numeric_limits<double>::max();
+
+    /// \brief Double min value. This value will be similar to 2.22507e-308
+    static const double
+    GAZEBO_DEPRECATED(8.0)
+    MIN_D = std::numeric_limits<double>::min();
+
+    /// \brief Double positive infinite value
+    static const double
+    GAZEBO_DEPRECATED(8.0)
+    INF_D = std::numeric_limits<double>::infinity();
 
     /// \brief Returns the representation of a quiet not a number (NAN)
-    static const int NAN_I = std::numeric_limits<int>::quiet_NaN();
+    static const double
+    GAZEBO_DEPRECATED(8.0)
+    NAN_D = std::numeric_limits<double>::quiet_NaN();
+
+    /// \brief Float maximum value. This value will be similar to 3.40282e+38
+    static const float
+    GAZEBO_DEPRECATED(8.0)
+    MAX_F = std::numeric_limits<float>::max();
+
+    /// \brief Float minimum value. This value will be similar to 1.17549e-38
+    static const float
+    GAZEBO_DEPRECATED(8.0)
+    MIN_F = std::numeric_limits<float>::min();
+
+    /// \brief 32bit unsigned integer maximum value
+    static const uint32_t
+    GAZEBO_DEPRECATED(8.0)
+    MAX_UI32 = std::numeric_limits<uint32_t>::max();
+
+    /// \brief 32bit unsigned integer minimum value
+    static const uint32_t
+    GAZEBO_DEPRECATED(8.0)
+    MIN_UI32 = std::numeric_limits<uint32_t>::min();
+
+    /// \brief 32bit unsigned integer maximum value
+    static const int32_t
+    GAZEBO_DEPRECATED(8.0)
+    MAX_I32 = std::numeric_limits<int32_t>::max();
+
+    /// \brief 32bit unsigned integer minimum value
+    static const int32_t
+    GAZEBO_DEPRECATED(8.0)
+    MIN_I32 = std::numeric_limits<int32_t>::min();
+
+    /// \brief Returns the representation of a quiet not a number (NAN)
+    static const int
+    GAZEBO_DEPRECATED(8.0)
+    NAN_I = std::numeric_limits<int>::quiet_NaN();
 
     /// \brief Simple clamping function
     /// \param[in] _v value
     /// \param[in] _min minimum
     /// \param[in] _max maximum
+    /// \deprecated See ignition::math::clamp
     template<typename T>
-    inline T clamp(T _v, T _min, T _max)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    clamp(T _v, T _min, T _max)
     {
       return std::max(std::min(_v, _max), _min);
     }
@@ -82,7 +135,10 @@ namespace gazebo
     /// \brief check if a float is NaN
     /// \param[in] _v the value
     /// \return true if _v is not a number, false otherwise
-    inline bool isnan(float _v)
+    /// \deprecated See ignition::math::isnan
+    inline bool
+    GAZEBO_DEPRECATED(8.0)
+    isnan(float _v)
     {
       return (boost::math::isnan)(_v);
     }
@@ -90,15 +146,25 @@ namespace gazebo
     /// \brief check if a double is NaN
     /// \param[in] _v the value
     /// \return true if _v is not a number, false otherwise
-    inline bool isnan(double _v)
+    /// \deprecated See ignition::math::isnan
+    inline bool
+    GAZEBO_DEPRECATED(8.0)
+    isnan(double _v)
     {
       return (boost::math::isnan)(_v);
     }
 
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
     /// \brief Fix a nan value.
     /// \param[in] _v Value to correct.
     /// \return 0 if _v is NaN, _v otherwise.
-    inline float fixnan(float _v)
+    /// \deprecated See ignition::math::fixnan
+    inline float
+    GAZEBO_DEPRECATED(8.0)
+    fixnan(float _v)
     {
       return isnan(_v) || std::isinf(_v) ? 0.0f : _v;
     }
@@ -106,16 +172,25 @@ namespace gazebo
     /// \brief Fix a nan value.
     /// \param[in] _v Value to correct.
     /// \return 0 if _v is NaN, _v otherwise.
-    inline double fixnan(double _v)
+    /// \deprecated See ignition::math::fixnan
+    inline double
+    GAZEBO_DEPRECATED(8.0)
+    fixnan(double _v)
     {
       return isnan(_v) || std::isinf(_v) ? 0.0 : _v;
     }
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 
     /// \brief get mean of vector of values
     /// \param[in] _values the vector of values
     /// \return the mean
+    /// \deprecated See ignition::math::mean
     template<typename T>
-    inline T mean(const std::vector<T> &_values)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    mean(const std::vector<T> &_values)
     {
       T sum = 0;
       for (unsigned int i = 0; i < _values.size(); ++i)
@@ -126,8 +201,11 @@ namespace gazebo
     /// \brief get variance of vector of values
     /// \param[in] _values the vector of values
     /// \return the squared deviation
+    /// \deprecated See ignition::math::variance
     template<typename T>
-    inline T variance(const std::vector<T> &_values)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    variance(const std::vector<T> &_values)
     {
       T avg = mean<T>(_values);
 
@@ -140,8 +218,11 @@ namespace gazebo
     /// \brief get the maximum value of vector of values
     /// \param[in] _values the vector of values
     /// \return maximum
+    /// \deprecated See ignition::math::max
     template<typename T>
-    inline T max(const std::vector<T> &_values)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    max(const std::vector<T> &_values)
     {
       T max = std::numeric_limits<T>::min();
       for (unsigned int i = 0; i < _values.size(); ++i)
@@ -153,8 +234,11 @@ namespace gazebo
     /// \brief get the minimum value of vector of values
     /// \param[in] _values the vector of values
     /// \return minimum
+    /// \deprecated See ignition::math::min
     template<typename T>
-    inline T min(const std::vector<T> &_values)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    min(const std::vector<T> &_values)
     {
       T min = std::numeric_limits<T>::max();
       for (unsigned int i = 0; i < _values.size(); ++i)
@@ -167,9 +251,11 @@ namespace gazebo
     /// \param[in] _a the first value
     /// \param[in] _b the second value
     /// \param[in] _epsilon the tolerance
+    /// \deprecated See ignition::math::equal
     template<typename T>
-    inline bool equal(const T &_a, const T &_b,
-                      const T &_epsilon = 1e-6)
+    inline bool
+    GAZEBO_DEPRECATED(8.0)
+    equal(const T &_a, const T &_b, const T &_epsilon = 1e-6)
     {
       return std::fabs(_a - _b) <= _epsilon;
     }
@@ -178,8 +264,11 @@ namespace gazebo
     /// \param[in] _a the number
     /// \param[in] _precision the precision
     /// \return the value for the specified precision
+    /// \deprecated See ignition::math::precision
     template<typename T>
-    inline T precision(const T &_a, const unsigned int &_precision)
+    inline T
+    GAZEBO_DEPRECATED(8.0)
+    precision(const T &_a, const unsigned int &_precision)
     {
       if (!std::isinf(_a))
       {
@@ -195,7 +284,10 @@ namespace gazebo
     /// \brief is this a power of 2?
     /// \param[in] _x the number
     /// \return true if _x is a power of 2, false otherwise
-    inline bool isPowerOfTwo(unsigned int _x)
+    /// \deprecated See ignition::math::isPowerOfTwo
+    inline bool
+    GAZEBO_DEPRECATED(8.0)
+    isPowerOfTwo(unsigned int _x)
     {
       return ((_x != 0) && ((_x & (~_x + 1)) == _x));
     }
@@ -205,13 +297,23 @@ namespace gazebo
     /// \param[in] _x the number
     /// \return the same value if _x is already a power of two. Otherwise,
     /// it returns the smallest power of two that is greater than _x
-    inline unsigned int roundUpPowerOfTwo(unsigned int _x)
+    /// \deprecated See ignition::math::roundUpPowerOfTwo
+    inline unsigned int
+    GAZEBO_DEPRECATED(8.0)
+    roundUpPowerOfTwo(unsigned int _x)
     {
       if (_x == 0)
         return 1;
 
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
       if (isPowerOfTwo(_x))
         return _x;
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 
       while (_x & (_x - 1))
         _x = _x & (_x - 1);
@@ -224,11 +326,21 @@ namespace gazebo
     /// \brief parse string into an integer
     /// \param[in] _input the string
     /// \return an integer, 0 or 0 and a message in the error stream
-    inline int parseInt(const std::string& _input)
+    /// \deprecated See ignition::math::parseInt
+    inline int
+    GAZEBO_DEPRECATED(8.0)
+    parseInt(const std::string& _input)
     {
       const char *p = _input.c_str();
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
       if (!*p || *p == '?')
         return NAN_I;
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 
       int s = 1;
       while (*p == ' ')
@@ -240,7 +352,7 @@ namespace gazebo
         p++;
       }
 
-      double acc = 0;
+      int acc = 0;
       while (*p >= '0' && *p <= '9')
         acc = acc * 10 + *p++ - '0';
 
@@ -257,11 +369,21 @@ namespace gazebo
     /// \param _input the string
     /// \return a floating point number (can be NaN) or 0 with a message in the
     /// error stream
-    inline double parseFloat(const std::string& _input)
+    /// \deprecated See ignition::math::parseFloat
+    inline double
+    GAZEBO_DEPRECATED(8.0)
+    parseFloat(const std::string& _input)
     {
       const char *p = _input.c_str();
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
       if (!*p || *p == '?')
         return NAN_D;
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
       int s = 1;
       while (*p == ' ')
         p++;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <string>
+
+#include <ignition/math/Rand.hh>
 
 #include "gazebo/physics/bullet/BulletTypes.hh"
 #include "gazebo/physics/bullet/BulletLink.hh"
@@ -55,8 +57,6 @@
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
 #include "gazebo/common/Exception.hh"
-#include "gazebo/math/Vector3.hh"
-#include "gazebo/math/Rand.hh"
 
 #include "gazebo/physics/bullet/BulletPhysics.hh"
 #include "gazebo/physics/bullet/BulletSurfaceParams.hh"
@@ -76,8 +76,8 @@ struct CollisionFilter : public btOverlapFilterCallback
   virtual bool needBroadphaseCollision(btBroadphaseProxy *_proxy0,
       btBroadphaseProxy *_proxy1) const
     {
-      GZ_ASSERT(_proxy0 != NULL && _proxy1 != NULL,
-          "Bullet broadphase overlapping pair proxies are NULL");
+      GZ_ASSERT(_proxy0 != nullptr && _proxy1 != nullptr,
+          "Bullet broadphase overlapping pair proxies are null");
 
       bool collide = (_proxy0->m_collisionFilterGroup
           & _proxy1->m_collisionFilterMask) != 0;
@@ -96,11 +96,11 @@ struct CollisionFilter : public btOverlapFilterCallback
 
       BulletLink *link0 = static_cast<BulletLink *>(
           rb0->getUserPointer());
-      GZ_ASSERT(link0 != NULL, "Link0 in collision pair is NULL");
+      GZ_ASSERT(link0 != nullptr, "Link0 in collision pair is null");
 
       BulletLink *link1 = static_cast<BulletLink *>(
           rb1->getUserPointer());
-      GZ_ASSERT(link1 != NULL, "Link1 in collision pair is NULL");
+      GZ_ASSERT(link1 != nullptr, "Link1 in collision pair is null");
 
       if (!link0->GetSelfCollide() || !link1->GetSelfCollide())
       {
@@ -129,11 +129,11 @@ void InternalTickCallback(btDynamicsWorld *_world, btScalar _timeStep)
 
     BulletLink *link1 = static_cast<BulletLink *>(
         obA->getUserPointer());
-    GZ_ASSERT(link1 != NULL, "Link1 in collision pair is NULL");
+    GZ_ASSERT(link1 != nullptr, "Link1 in collision pair is null");
 
     BulletLink *link2 = static_cast<BulletLink *>(
         obB->getUserPointer());
-    GZ_ASSERT(link2 != NULL, "Link2 in collision pair is NULL");
+    GZ_ASSERT(link2 != nullptr, "Link2 in collision pair is null");
 
     unsigned int colIndex = 0;
     CollisionPtr collisionPtr1 = link1->GetCollision(colIndex);
@@ -142,27 +142,27 @@ void InternalTickCallback(btDynamicsWorld *_world, btScalar _timeStep)
     if (!collisionPtr1 || !collisionPtr2)
       continue;
 
-    PhysicsEnginePtr engine = collisionPtr1->GetWorld()->GetPhysicsEngine();
+    PhysicsEnginePtr engine = collisionPtr1->GetWorld()->Physics();
     BulletPhysicsPtr bulletPhysics =
           boost::static_pointer_cast<BulletPhysics>(engine);
 
-    // Add a new contact to the manager. This will return NULL if no one is
+    // Add a new contact to the manager. This will return nullptr if no one is
     // listening for contact information.
     Contact *contactFeedback = bulletPhysics->GetContactManager()->NewContact(
         collisionPtr1.get(), collisionPtr2.get(),
-        collisionPtr1->GetWorld()->GetSimTime());
+        collisionPtr1->GetWorld()->SimTime());
 
     if (!contactFeedback)
       continue;
 
-    math::Pose body1Pose = link1->GetWorldPose();
-    math::Pose body2Pose = link2->GetWorldPose();
-    math::Vector3 cg1Pos = link1->GetInertial()->GetPose().pos;
-    math::Vector3 cg2Pos = link2->GetInertial()->GetPose().pos;
-    math::Vector3 localForce1;
-    math::Vector3 localForce2;
-    math::Vector3 localTorque1;
-    math::Vector3 localTorque2;
+    auto body1Pose = link1->WorldPose();
+    auto body2Pose = link2->WorldPose();
+    auto cg1Pos = link1->GetInertial()->Pose().Pos();
+    auto cg2Pos = link2->GetInertial()->Pose().Pos();
+    ignition::math::Vector3d localForce1;
+    ignition::math::Vector3d localForce2;
+    ignition::math::Vector3d localTorque1;
+    ignition::math::Vector3d localTorque2;
 
     int numContacts = contactManifold->getNumContacts();
     for (int j = 0; j < numContacts; ++j)
@@ -182,17 +182,17 @@ void InternalTickCallback(btDynamicsWorld *_world, btScalar _timeStep)
         btVector3 torqueB = (ptB-rbB->getCenterOfMassPosition()).cross(-force);
 
         // Convert from world to link frame
-        localForce1 = body1Pose.rot.RotateVectorReverse(
-            BulletTypes::ConvertVector3(force));
-        localForce2 = body2Pose.rot.RotateVectorReverse(
-            BulletTypes::ConvertVector3(-force));
-        localTorque1 = body1Pose.rot.RotateVectorReverse(
-            BulletTypes::ConvertVector3(torqueA));
-        localTorque2 = body2Pose.rot.RotateVectorReverse(
-            BulletTypes::ConvertVector3(torqueB));
+        localForce1 = body1Pose.Rot().RotateVectorReverse(
+            BulletTypes::ConvertVector3Ign(force));
+        localForce2 = body2Pose.Rot().RotateVectorReverse(
+            BulletTypes::ConvertVector3Ign(-force));
+        localTorque1 = body1Pose.Rot().RotateVectorReverse(
+            BulletTypes::ConvertVector3Ign(torqueA));
+        localTorque2 = body2Pose.Rot().RotateVectorReverse(
+            BulletTypes::ConvertVector3Ign(torqueB));
 
-        contactFeedback->positions[j] = BulletTypes::ConvertVector3(ptB);
-        contactFeedback->normals[j] = BulletTypes::ConvertVector3(normalOnB);
+        contactFeedback->positions[j] = BulletTypes::ConvertVector3Ign(ptB);
+        contactFeedback->normals[j] = BulletTypes::ConvertVector3Ign(normalOnB);
         contactFeedback->depths[j] = -pt.getDistance();
         if (!link1->IsStatic())
         {
@@ -266,8 +266,8 @@ BulletPhysics::BulletPhysics(WorldPtr _world)
 
   btOverlapFilterCallback *filterCallback = new CollisionFilter();
   btOverlappingPairCache* pairCache = this->dynamicsWorld->getPairCache();
-  GZ_ASSERT(pairCache != NULL,
-      "Bullet broadphase overlapping pair cache is NULL");
+  GZ_ASSERT(pairCache != nullptr,
+      "Bullet broadphase overlapping pair cache is null");
   pairCache->setOverlapFilterCallback(filterCallback);
 
   // TODO: Enable this to do custom contact setting
@@ -279,7 +279,7 @@ BulletPhysics::BulletPhysics(WorldPtr _world)
 
   // Set random seed for physics engine based on gazebo's random seed.
   // Note: this was moved from physics::PhysicsEngine constructor.
-  this->SetSeed(math::Rand::GetSeed());
+  this->SetSeed(ignition::math::Rand::Seed());
 
   btGImpactCollisionAlgorithm::registerAlgorithm(dispatcher);
 }
@@ -378,7 +378,7 @@ void BulletPhysics::OnRequest(ConstRequestPtr &_msg)
       boost::any_cast<double>(this->GetParam("min_step_size")));
     physicsMsg.set_iters(
       boost::any_cast<int>(this->GetParam("iters")));
-    physicsMsg.set_enable_physics(this->world->GetEnablePhysicsEngine());
+    physicsMsg.set_enable_physics(this->world->PhysicsEnabled());
     physicsMsg.set_sor(
       boost::any_cast<double>(this->GetParam("sor")));
     physicsMsg.set_cfm(
@@ -392,7 +392,7 @@ void BulletPhysics::OnRequest(ConstRequestPtr &_msg)
     physicsMsg.mutable_gravity()->CopyFrom(
       msgs::Convert(this->world->Gravity()));
     physicsMsg.mutable_magnetic_field()->CopyFrom(
-        msgs::Convert(this->MagneticField()));
+        msgs::Convert(this->world->MagneticField()));
     physicsMsg.set_real_time_update_rate(this->realTimeUpdateRate);
     physicsMsg.set_real_time_factor(this->targetRealTimeFactor);
     physicsMsg.set_max_step_size(this->maxStepSize);
@@ -430,7 +430,7 @@ void BulletPhysics::OnPhysicsMsg(ConstPhysicsPtr &_msg)
     this->SetParam("erp", _msg->erp());
 
   if (_msg->has_enable_physics())
-    this->world->EnablePhysicsEngine(_msg->enable_physics());
+    this->world->SetPhysicsEnabled(_msg->enable_physics());
 
   if (_msg->has_contact_surface_layer())
     this->SetParam("contact_surface_layer", _msg->contact_surface_layer());
@@ -477,23 +477,23 @@ void BulletPhysics::Fini()
   // Delete in reverse-order of creation
   if (this->dynamicsWorld)
     delete this->dynamicsWorld;
-  this->dynamicsWorld = NULL;
+  this->dynamicsWorld = nullptr;
 
   if (this->solver)
     delete this->solver;
-  this->solver = NULL;
+  this->solver = nullptr;
 
   if (this->broadPhase)
     delete this->broadPhase;
-  this->broadPhase = NULL;
+  this->broadPhase = nullptr;
 
   if (this->dispatcher)
     delete this->dispatcher;
-  this->dispatcher = NULL;
+  this->dispatcher = nullptr;
 
   if (this->collisionConfig)
     delete this->collisionConfig;
-  this->collisionConfig = NULL;
+  this->collisionConfig = nullptr;
 
   PhysicsEngine::Fini();
 }
@@ -525,7 +525,7 @@ void BulletPhysics::SetSORPGSIters(unsigned int _iters)
 bool BulletPhysics::SetParam(const std::string &_key, const boost::any &_value)
 {
   sdf::ElementPtr bulletElem = this->sdf->GetElement("bullet");
-  GZ_ASSERT(bulletElem != NULL, "Bullet SDF element does not exist");
+  GZ_ASSERT(bulletElem != nullptr, "Bullet SDF element does not exist");
 
   btContactSolverInfo& info = this->dynamicsWorld->getSolverInfo();
 
@@ -627,7 +627,7 @@ boost::any BulletPhysics::GetParam(const std::string &_key) const
 bool BulletPhysics::GetParam(const std::string &_key, boost::any &_value) const
 {
   sdf::ElementPtr bulletElem = this->sdf->GetElement("bullet");
-  GZ_ASSERT(bulletElem != NULL, "Bullet SDF element does not exist");
+  GZ_ASSERT(bulletElem != nullptr, "Bullet SDF element does not exist");
 
   if (_key == "solver_type")
     _value = bulletElem->GetElement("solver")->Get<std::string>("type");
@@ -666,7 +666,7 @@ bool BulletPhysics::GetParam(const std::string &_key, boost::any &_value) const
 //////////////////////////////////////////////////
 LinkPtr BulletPhysics::CreateLink(ModelPtr _parent)
 {
-  if (_parent == NULL)
+  if (_parent == nullptr)
     gzthrow("Link must have a parent\n");
 
   BulletLinkPtr link(new BulletLink(_parent));
@@ -714,7 +714,7 @@ ShapePtr BulletPhysics::CreateShape(const std::string &_type,
     if (_collision)
       shape.reset(new BulletRayShape(_collision));
     else
-      shape.reset(new BulletRayShape(this->world->GetPhysicsEngine()));
+      shape.reset(new BulletRayShape(this->world->Physics()));
   else
     gzerr << "Unable to create collision of type[" << _type << "]\n";
 
@@ -782,9 +782,9 @@ void BulletPhysics::SetWorldCFM(double _cfm)
 }
 
 //////////////////////////////////////////////////
-void BulletPhysics::SetGravity(const gazebo::math::Vector3 &_gravity)
+void BulletPhysics::SetGravity(const ignition::math::Vector3d &_gravity)
 {
-  this->world->SetGravitySDF(_gravity.Ign());
+  this->world->SetGravitySDF(_gravity);
   this->dynamicsWorld->setGravity(
     BulletTypes::ConvertVector3(_gravity));
 }

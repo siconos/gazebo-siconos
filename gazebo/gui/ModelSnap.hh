@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Open Source Robotics Foundation
+ * Copyright (C) 2014 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,25 @@
  * limitations under the License.
  *
 */
-#ifndef _GAZEBO_MODEL_SNAP_HH_
-#define _GAZEBO_MODEL_SNAP_HH_
+#ifndef GAZEBO_GUI_MODELSNAP_HH_
+#define GAZEBO_GUI_MODELSNAP_HH_
 
-#include <string>
+#include <memory>
 #include <vector>
-
-#include "gazebo/common/MouseEvent.hh"
-#include "gazebo/common/KeyEvent.hh"
-
-#include "gazebo/math/Pose.hh"
-#include "gazebo/rendering/RenderTypes.hh"
+#include <ignition/math/Quaternion.hh>
+#include <ignition/math/Triangle3.hh>
 
 #include "gazebo/common/SingletonT.hh"
+#include "gazebo/rendering/RenderTypes.hh"
 #include "gazebo/util/system.hh"
 
 namespace gazebo
 {
+  namespace common
+  {
+    class MouseEvent;
+  }
+
   namespace gui
   {
     class ModelSnapPrivate;
@@ -55,6 +57,9 @@ namespace gazebo
       /// \brief Reset the model snapping tool.
       public: void Reset();
 
+      /// \brief Clean up the model snap tool.
+      public: void Fini();
+
       /// \brief Calculate the translation and rotation needed to snap the
       /// centroid of a mesh triangle of a visual to another, taking into
       /// account any pose offsets.
@@ -62,8 +67,9 @@ namespace gazebo
       /// \param[in] _triangleDest vertices of the other triangle that will be
       /// moved.
       /// \param[in] _visualSrc Visual being moved by the snap action.
-      public: void Snap(const std::vector<math::Vector3> &_triangleSrc,
-          const std::vector<math::Vector3> &_triangleDest,
+      public: void Snap(
+          const ignition::math::Triangle3d &_triangleSrc,
+          const ignition::math::Triangle3d &_triangleDest,
           rendering::VisualPtr _visualSrc);
 
       /// \brief Calculate the translation and rotation needed to snap the
@@ -76,11 +82,12 @@ namespace gazebo
       /// visual.
       /// \param[out] _trans Translation output.
       /// \param[out] _rotation Rotation output.
-      public: void GetSnapTransform(
-          const std::vector<math::Vector3> &_triangleSrc,
-          const std::vector<math::Vector3> &_triangleDest,
-          const math::Pose &_poseSrc, math::Vector3 &_trans,
-          math::Quaternion &_rot);
+      public: static void SnapTransform(
+          const ignition::math::Triangle3d &_triangleSrc,
+          const ignition::math::Triangle3d &_triangleDest,
+          const ignition::math::Pose3d &_poseSrc,
+          ignition::math::Vector3d &_trans,
+          ignition::math::Quaterniond &_rot);
 
       /// \brief Process an object translate mouse press event.
       /// \param[in] _event Mouse event.
@@ -106,7 +113,7 @@ namespace gazebo
 
       /// \internal
       /// \brief Pointer to private data.
-      private: ModelSnapPrivate *dataPtr;
+      private: std::unique_ptr<ModelSnapPrivate> dataPtr;
     };
   }
 }

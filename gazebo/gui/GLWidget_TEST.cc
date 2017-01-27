@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Open Source Robotics Foundation
+ * Copyright (C) 2014 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 */
 #include <boost/filesystem.hpp>
 #include "gazebo/common/KeyEvent.hh"
-#include "gazebo/math/Helpers.hh"
 #include "gazebo/msgs/msgs.hh"
 #include "gazebo/transport/transport.hh"
 #include "gazebo/gui/Actions.hh"
@@ -78,12 +77,12 @@ void GLWidget_TEST::SelectObject()
       glWidget->SelectedVisuals();
 
   QVERIFY(selectedVisuals.size() == 1u);
-  QVERIFY(selectedVisuals[0]->GetName() == "box");
+  QVERIFY(selectedVisuals[0]->Name() == "box");
 
   // Delete the selected object. This is here to make sure the GUI does not
   // segfault if an object is deleted.
   {
-    std::string name = selectedVisuals.back()->GetName();
+    std::string name = selectedVisuals.back()->Name();
     gazebo::transport::requestNoReply(node, "entity_delete", name);
 
     this->ProcessEventsAndDraw(mainWindow);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,12 +72,6 @@ bool KeyEventHandler::HandlePress(const common::KeyEvent &_event)
 bool KeyEventHandler::HandleRelease(const common::KeyEvent &_event)
 {
   return this->Handle(_event, this->dataPtr->releaseFilters);
-}
-
-/////////////////////////////////////////////////
-bool KeyEventHandler::GetAutoRepeat() const
-{
-  return this->AutoRepeat();
 }
 
 /////////////////////////////////////////////////

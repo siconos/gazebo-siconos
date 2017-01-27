@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ void ModelMaker_TEST::SimpleShape()
   this->resMaxPercentChange = 5.0;
   this->shareMaxPercentChange = 2.0;
 
-  this->Load("worlds/empty.world");
+  this->Load("worlds/empty.world", false, false, false);
 
   // Create the main window.
   gazebo::gui::MainWindow *mainWindow = new gazebo::gui::MainWindow();
@@ -44,7 +44,7 @@ void ModelMaker_TEST::SimpleShape()
   this->ProcessEventsAndDraw(mainWindow);
 
   // Check there's no box in the left panel yet
-  bool hasBox = mainWindow->HasEntityName("unit_box_0");
+  bool hasBox = mainWindow->HasEntityName("unit_box");
   QVERIFY(!hasBox);
 
   // Get scene
@@ -52,7 +52,7 @@ void ModelMaker_TEST::SimpleShape()
   QVERIFY(scene != NULL);
 
   // Check there's no box in the scene yet
-  gazebo::rendering::VisualPtr vis = scene->GetVisual("unit_box_0");
+  gazebo::rendering::VisualPtr vis = scene->GetVisual("unit_box");
   QVERIFY(vis == NULL);
 
   // Create a model maker
@@ -64,17 +64,17 @@ void ModelMaker_TEST::SimpleShape()
   modelMaker->Start();
 
   // Check there's still no box in the left panel
-  hasBox = mainWindow->HasEntityName("unit_box_0");
+  hasBox = mainWindow->HasEntityName("unit_box");
   QVERIFY(!hasBox);
 
   // Check there's a box in the scene -- this is the preview
-  vis = scene->GetVisual("unit_box_0");
+  vis = scene->GetVisual("unit_box");
   QVERIFY(vis != NULL);
 
   // Check that the box appeared in the center of the screen
   ignition::math::Vector3d startPos = modelMaker->EntityPosition();
   QVERIFY(startPos == ignition::math::Vector3d(0, 0, 0.5));
-  QVERIFY(vis->GetWorldPose().pos == startPos);
+  QVERIFY(vis->WorldPose().Pos() == startPos);
 
   // Mouse move
   gazebo::common::MouseEvent mouseEvent;
@@ -84,7 +84,7 @@ void ModelMaker_TEST::SimpleShape()
   // Check that entity moved
   ignition::math::Vector3d pos = modelMaker->EntityPosition();
   QVERIFY(pos != startPos);
-  QVERIFY(vis->GetWorldPose().pos == pos);
+  QVERIFY(vis->WorldPose().Pos() == pos);
 
   // Mouse release
   mouseEvent.SetType(gazebo::common::MouseEvent::RELEASE);
@@ -95,18 +95,20 @@ void ModelMaker_TEST::SimpleShape()
   modelMaker->OnMouseRelease(mouseEvent);
 
   // Check there's no box in the scene -- the preview is gone
-  vis = scene->GetVisual("unit_box_0");
+  vis = scene->GetVisual("unit_box");
   QVERIFY(vis == NULL);
 
   this->ProcessEventsAndDraw(mainWindow);
 
   // Check there's a box in the scene -- this is the final model
-  vis = scene->GetVisual("unit_box_0");
+  vis = scene->GetVisual("unit_box");
   QVERIFY(vis != NULL);
 
   // Check the box is in the left panel
-  hasBox = mainWindow->HasEntityName("unit_box_0");
+  hasBox = mainWindow->HasEntityName("unit_box");
   QVERIFY(hasBox);
+
+  delete modelMaker;
 
   // Terminate
   mainWindow->close();
@@ -119,7 +121,7 @@ void ModelMaker_TEST::FromFile()
   this->resMaxPercentChange = 5.0;
   this->shareMaxPercentChange = 2.0;
 
-  this->Load("worlds/empty.world");
+  this->Load("worlds/empty.world", false, false, false);
 
   // Create the main window.
   gazebo::gui::MainWindow *mainWindow = new gazebo::gui::MainWindow();
@@ -165,7 +167,7 @@ void ModelMaker_TEST::FromFile()
   // Check that the box appeared in the center of the screen
   ignition::math::Vector3d startPos = modelMaker->EntityPosition();
   QVERIFY(startPos == ignition::math::Vector3d(0, 0, 0.5));
-  QVERIFY(vis->GetWorldPose().pos == startPos);
+  QVERIFY(vis->WorldPose().Pos() == startPos);
 
   // Mouse move
   gazebo::common::MouseEvent mouseEvent;
@@ -175,7 +177,7 @@ void ModelMaker_TEST::FromFile()
   // Check that entity moved
   ignition::math::Vector3d pos = modelMaker->EntityPosition();
   QVERIFY(pos != startPos);
-  QVERIFY(vis->GetWorldPose().pos == pos);
+  QVERIFY(vis->WorldPose().Pos() == pos);
 
   // Mouse release
   mouseEvent.SetType(gazebo::common::MouseEvent::RELEASE);
@@ -199,6 +201,8 @@ void ModelMaker_TEST::FromFile()
   hasBox = mainWindow->HasEntityName("box");
   QVERIFY(hasBox);
 
+  delete modelMaker;
+
   // Terminate
   mainWindow->close();
   delete mainWindow;
@@ -210,7 +214,7 @@ void ModelMaker_TEST::FromNestedModelFile()
   this->resMaxPercentChange = 5.0;
   this->shareMaxPercentChange = 2.0;
 
-  this->Load("worlds/empty.world");
+  this->Load("worlds/empty.world", false, false, false);
 
   // Create the main window.
   gazebo::gui::MainWindow *mainWindow = new gazebo::gui::MainWindow();
@@ -239,7 +243,8 @@ void ModelMaker_TEST::FromNestedModelFile()
 
   // Model data
   boost::filesystem::path path;
-  path = path / TEST_PATH / "models" / "deeply_nested_model.sdf";
+  path = path / TEST_PATH / "models" / "testdb" / "deeply_nested_model" /
+      "model.sdf";
 
   // Start the maker to make a model
   modelMaker->InitFromFile(path.string());
@@ -265,7 +270,7 @@ void ModelMaker_TEST::FromNestedModelFile()
   ignition::math::Vector3d startPos = modelMaker->EntityPosition();
   QVERIFY(startPos == ignition::math::Vector3d(0, 0, 0.5));
   vis = scene->GetVisual("model_00");
-  QVERIFY(vis->GetWorldPose().pos == startPos);
+  QVERIFY(vis->WorldPose().Pos() == startPos);
 
   // Mouse move
   gazebo::common::MouseEvent mouseEvent;
@@ -275,7 +280,7 @@ void ModelMaker_TEST::FromNestedModelFile()
   // Check that entity moved
   ignition::math::Vector3d pos = modelMaker->EntityPosition();
   QVERIFY(pos != startPos);
-  QVERIFY(vis->GetWorldPose().pos == pos);
+  QVERIFY(vis->WorldPose().Pos() == pos);
 
   // Mouse release
   mouseEvent.SetType(gazebo::common::MouseEvent::RELEASE);
@@ -311,6 +316,8 @@ void ModelMaker_TEST::FromNestedModelFile()
   hasModel = mainWindow->HasEntityName("model_00");
   QVERIFY(hasModel);
 
+  delete modelMaker;
+
   // Terminate
   mainWindow->close();
   delete mainWindow;
@@ -322,7 +329,7 @@ void ModelMaker_TEST::FromModel()
   this->resMaxPercentChange = 5.0;
   this->shareMaxPercentChange = 2.0;
 
-  this->Load("worlds/box.world");
+  this->Load("worlds/box.world", false, false, false);
 
   // Create the main window.
   gazebo::gui::MainWindow *mainWindow = new gazebo::gui::MainWindow();
@@ -374,7 +381,7 @@ void ModelMaker_TEST::FromModel()
   // Check that the clone appeared in the center of the screen
   ignition::math::Vector3d startPos = modelMaker->EntityPosition();
   QVERIFY(startPos == ignition::math::Vector3d(0, 0, 0.5));
-  QVERIFY(vis->GetWorldPose().pos == startPos);
+  QVERIFY(vis->WorldPose().Pos() == startPos);
 
   // Mouse move
   gazebo::common::MouseEvent mouseEvent;
@@ -384,7 +391,7 @@ void ModelMaker_TEST::FromModel()
   // Check that entity moved
   ignition::math::Vector3d pos = modelMaker->EntityPosition();
   QVERIFY(pos != startPos);
-  QVERIFY(vis->GetWorldPose().pos == pos);
+  QVERIFY(vis->WorldPose().Pos() == pos);
 
   // Mouse release
   mouseEvent.SetType(gazebo::common::MouseEvent::RELEASE);
@@ -408,6 +415,8 @@ void ModelMaker_TEST::FromModel()
   hasModel = mainWindow->HasEntityName("box_clone");
   QVERIFY(hasModel);
 
+  delete modelMaker;
+
   // Terminate
   mainWindow->close();
   delete mainWindow;
@@ -419,7 +428,7 @@ void ModelMaker_TEST::FromNestedModel()
   this->resMaxPercentChange = 5.0;
   this->shareMaxPercentChange = 2.0;
 
-  this->Load("test/worlds/deeply_nested_models.world");
+  this->Load("test/worlds/deeply_nested_models.world", false, false, false);
 
   // Create the main window.
   gazebo::gui::MainWindow *mainWindow = new gazebo::gui::MainWindow();
@@ -487,7 +496,7 @@ void ModelMaker_TEST::FromNestedModel()
   ignition::math::Vector3d startPos = modelMaker->EntityPosition();
   QVERIFY(startPos == ignition::math::Vector3d(0, 0, 0.5));
   vis = scene->GetVisual("model_00_clone_tmp");
-  QVERIFY(vis->GetWorldPose().pos == startPos);
+  QVERIFY(vis->WorldPose().Pos() == startPos);
 
   // Mouse move
   gazebo::common::MouseEvent mouseEvent;
@@ -497,7 +506,7 @@ void ModelMaker_TEST::FromNestedModel()
   // Check that entity moved
   ignition::math::Vector3d pos = modelMaker->EntityPosition();
   QVERIFY(pos != startPos);
-  QVERIFY(vis->GetWorldPose().pos == pos);
+  QVERIFY(vis->WorldPose().Pos() == pos);
 
   // Mouse release
   mouseEvent.SetType(gazebo::common::MouseEvent::RELEASE);
@@ -508,15 +517,14 @@ void ModelMaker_TEST::FromNestedModel()
   modelMaker->OnMouseRelease(mouseEvent);
 
   // Check there's no clone in the scene -- the preview is gone
-  // FIXME visuals don't get removed
-  // vis = scene->GetVisual("model_00_clone_tmp");
-  // QVERIFY(vis == NULL);
-  // vis = scene->GetVisual("model_00_clone_tmp::model_01");
-  // QVERIFY(vis == NULL);
-  // vis = scene->GetVisual("model_00_clone_tmp::model_01::model_02");
-  // QVERIFY(vis == NULL);
-  // vis = scene->GetVisual("model_00_clone_tmp::model_01::model_02::model_03");
-  // QVERIFY(vis == NULL);
+  vis = scene->GetVisual("model_00_clone_tmp");
+  QVERIFY(vis == nullptr);
+  vis = scene->GetVisual("model_00_clone_tmp::model_01");
+  QVERIFY(vis == nullptr);
+  vis = scene->GetVisual("model_00_clone_tmp::model_01::model_02");
+  QVERIFY(vis == nullptr);
+  vis = scene->GetVisual("model_00_clone_tmp::model_01::model_02::model_03");
+  QVERIFY(vis == nullptr);
 
   this->ProcessEventsAndDraw(mainWindow);
 
@@ -533,6 +541,8 @@ void ModelMaker_TEST::FromNestedModel()
   // Check the clone is in the left panel
   hasModel = mainWindow->HasEntityName("model_00_clone");
   QVERIFY(hasModel);
+
+  delete modelMaker;
 
   // Terminate
   mainWindow->close();

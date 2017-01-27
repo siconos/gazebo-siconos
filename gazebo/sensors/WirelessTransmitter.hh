@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,17 +55,7 @@ namespace gazebo
 
       /// \brief Returns the Service Set Identifier (network name).
       /// \return Service Set Identifier (network name).
-      /// \deprecated See ESSID()
-      public: std::string GetESSID() const GAZEBO_DEPRECATED(7.0);
-
-      /// \brief Returns the Service Set Identifier (network name).
-      /// \return Service Set Identifier (network name).
       public: std::string ESSID() const;
-
-      /// \brief Returns reception frequency (MHz).
-      /// \return Reception frequency (MHz).
-      /// \deprecated See Freq()
-      public: double GetFreq() const GAZEBO_DEPRECATED(7.0);
 
       /// \brief Returns reception frequency (MHz).
       /// \return Reception frequency (MHz).

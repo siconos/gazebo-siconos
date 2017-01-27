@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,11 @@
 #endif
 
 #include <boost/thread/recursive_mutex.hpp>
+#include <ignition/math/Helpers.hh>
 
+#include "gazebo/common/Assert.hh"
+
+#include "gazebo/rendering/LinkFrameVisual.hh"
 #include "gazebo/rendering/Material.hh"
 #include "gazebo/rendering/Scene.hh"
 #include "gazebo/rendering/ogre_gazebo.h"
@@ -33,6 +37,7 @@
 #include "gazebo/gui/model/LinkConfig.hh"
 #include "gazebo/gui/model/CollisionConfig.hh"
 
+#include "gazebo/gui/ConfigWidget.hh"
 #include "gazebo/gui/GuiIface.hh"
 #include "gazebo/gui/model/ModelData.hh"
 
@@ -91,19 +96,39 @@ void ModelData::UpdateRenderGroup(rendering::VisualPtr _visual)
 /////////////////////////////////////////////////
 void NestedModelData::SetName(const std::string &_name)
 {
-  this->modelSDF->GetAttribute("name")->Set(_name);
+  if (this->modelSDF)
+    this->modelSDF->GetAttribute("name")->Set(_name);
+  else
+    gzerr << "Model SDF not found." << std::endl;
+}
+
+/////////////////////////////////////////////////
+std::string NestedModelData::Name() const
+{
+  if (this->modelSDF)
+    return this->modelSDF->Get<std::string>("name");
+
+  gzerr << "Model SDF not found." << std::endl;
+  return "";
 }
 
 /////////////////////////////////////////////////
 void NestedModelData::SetPose(const ignition::math::Pose3d &_pose)
 {
-  this->modelSDF->GetElement("pose")->Set(_pose);
+  if (this->modelSDF)
+    this->modelSDF->GetElement("pose")->Set(_pose);
+  else
+    gzerr << "Model SDF not found." << std::endl;
 }
 
 /////////////////////////////////////////////////
 ignition::math::Pose3d NestedModelData::Pose() const
 {
-  return this->modelSDF->Get<ignition::math::Pose3d>("pose");
+  if (this->modelSDF)
+    return this->modelSDF->Get<ignition::math::Pose3d>("pose");
+
+  gzerr << "Model SDF not found." << std::endl;
+  return ignition::math::Pose3d::Zero;
 }
 
 /////////////////////////////////////////////////
@@ -121,7 +146,6 @@ LinkData::LinkData()
   this->linkSDF.reset(new sdf::Element);
   sdf::initFile("link.sdf", this->linkSDF);
 
-  this->scale = ignition::math::Vector3d::One;
   this->inertiaIxx = 0;
   this->inertiaIyy = 0;
   this->inertiaIzz = 0;
@@ -133,21 +157,39 @@ LinkData::LinkData()
   connect(this->inspector, SIGNAL(Opened()), this, SLOT(OnInspectorOpened()));
   connect(this->inspector, SIGNAL(Applied()), this, SLOT(OnApply()));
   connect(this->inspector, SIGNAL(Accepted()), this, SLOT(OnAccept()));
-  connect(this->inspector->GetVisualConfig(),
+
+  this->connect(this->inspector, SIGNAL(ShowCollisions(const bool)),
+      this, SLOT(ShowCollisions(const bool)));
+
+  this->connect(this->inspector, SIGNAL(ShowVisuals(const bool)),
+      this, SLOT(ShowVisuals(const bool)));
+
+  this->connect(this->inspector, SIGNAL(ShowLinkFrame(const bool)),
+      this, SLOT(ShowLinkFrame(const bool)));
+
+  this->connect(this->inspector->GetVisualConfig(),
       SIGNAL(VisualAdded(const std::string &)),
       this, SLOT(OnAddVisual(const std::string &)));
 
-  connect(this->inspector->GetCollisionConfig(),
+  this->connect(this->inspector->GetCollisionConfig(),
       SIGNAL(CollisionAdded(const std::string &)),
       this, SLOT(OnAddCollision(const std::string &)));
 
-  connect(this->inspector->GetVisualConfig(),
+  this->connect(this->inspector->GetVisualConfig(),
       SIGNAL(VisualRemoved(const std::string &)), this,
       SLOT(OnRemoveVisual(const std::string &)));
 
-  connect(this->inspector->GetCollisionConfig(),
+  this->connect(this->inspector->GetCollisionConfig(),
       SIGNAL(CollisionRemoved(const std::string &)),
       this, SLOT(OnRemoveCollision(const std::string &)));
+
+  this->connect(this->inspector->GetCollisionConfig(),
+      SIGNAL(ShowCollision(const bool, const std::string &)),
+      this, SLOT(OnShowCollision(const bool, const std::string &)));
+
+  this->connect(this->inspector->GetVisualConfig(),
+      SIGNAL(ShowVisual(const bool, const std::string &)),
+      this, SLOT(OnShowVisual(const bool, const std::string &)));
 
   // note the destructor removes this connection with the assumption that it is
   // the first one in the vector
@@ -159,14 +201,13 @@ LinkData::LinkData()
 /////////////////////////////////////////////////
 LinkData::~LinkData()
 {
-  event::Events::DisconnectPreRender(this->connections[0]);
   this->connections.clear();
   delete this->inspector;
   delete this->updateMutex;
 }
 
 /////////////////////////////////////////////////
-std::string LinkData::GetName() const
+std::string LinkData::Name() const
 {
   return this->linkSDF->Get<std::string>("name");
 }
@@ -194,15 +235,16 @@ void LinkData::SetPose(const ignition::math::Pose3d &_pose)
 }
 
 /////////////////////////////////////////////////
-void LinkData::SetScale(const ignition::math::Vector3d &_scale)
+void LinkData::UpdateInspectorScale()
 {
-  VisualConfig *visualConfig = this->inspector->GetVisualConfig();
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
 
-  ignition::math::Vector3d dScale = _scale / this->scale;
-  for (auto const &it : this->visuals)
+  // Update visual config
+  VisualConfig *visualConfig = this->inspector->GetVisualConfig();
+  for (auto &it : this->visuals)
   {
-    std::string name = it.first->GetName();
-    std::string linkName = this->linkVisual->GetName();
+    std::string name = it.first->Name();
+    std::string linkName = this->linkVisual->Name();
     std::string leafName =
         name.substr(name.find(linkName)+linkName.size()+2);
     ignition::math::Vector3d visOldSize;
@@ -210,15 +252,20 @@ void LinkData::SetScale(const ignition::math::Vector3d &_scale)
     visualConfig->Geometry(leafName,  visOldSize, uri);
     ignition::math::Vector3d visNewSize = it.first->GetGeometrySize();
     visualConfig->SetGeometry(leafName, visNewSize);
+
+    auto visMsg = visualConfig->GetData(leafName);
+    if (visMsg)
+      it.second.CopyFrom(*visMsg);
   }
 
+  // Update collision config
   std::map<std::string, ignition::math::Vector3d> colOldSizes;
   std::map<std::string, ignition::math::Vector3d> colNewSizes;
   CollisionConfig *collisionConfig = this->inspector->GetCollisionConfig();
-  for (auto const &it : this->collisions)
+  for (auto &it : this->collisions)
   {
-    std::string name = it.first->GetName();
-    std::string linkName = this->linkVisual->GetName();
+    std::string name = it.first->Name();
+    std::string linkName = this->linkVisual->Name();
     std::string leafName =
         name.substr(name.find(linkName)+linkName.size()+2);
 
@@ -229,6 +276,10 @@ void LinkData::SetScale(const ignition::math::Vector3d &_scale)
     collisionConfig->SetGeometry(leafName, colNewSize);
     colOldSizes[name] = colOldSize;
     colNewSizes[name] = colNewSize;
+
+    auto colMsg = collisionConfig->GetData(leafName);
+    if (colMsg)
+      it.second.CopyFrom(*colMsg);
   }
 
   if (this->collisions.empty())
@@ -246,34 +297,26 @@ void LinkData::SetScale(const ignition::math::Vector3d &_scale)
   double oldVol = 0;
   for (auto const &it : this->collisions)
   {
-    ignition::math::Vector3d oldSize = colOldSizes[it.first->GetName()];
-    ignition::math::Vector3d newSize = colNewSizes[it.first->GetName()];
+    ignition::math::Vector3d oldSize = colOldSizes[it.first->Name()];
+    ignition::math::Vector3d newSize = colNewSizes[it.first->Name()];
     std::string geomStr = it.first->GetGeometryType();
     if (geomStr == "sphere")
     {
-      double r = oldSize.X() * 0.5;
-      double r3 = r*r*r;
-      double newR = newSize.X() * 0.5;
-      double newR3 = newR*newR*newR;
       // sphere volume: 4/3 * PI * r^3
-      oldVol += 4.0 / 3.0 * IGN_PI * r3;
-      newVol += 4.0 / 3.0 * IGN_PI * newR3;
+      oldVol += IGN_SPHERE_VOLUME(oldSize.X() * 0.5);
+      newVol += IGN_SPHERE_VOLUME(newSize.X() * 0.5);
     }
     else if (geomStr == "cylinder")
     {
-      double r = oldSize.X() * 0.5;
-      double r2 = r*r;
-      double newR = newSize.X() * 0.5;
-      double newR2 = newR*newR;
       // cylinder volume: PI * r^2 * height
-      oldVol += IGN_PI * r2 * oldSize.Z();
-      newVol += IGN_PI * newR2 * newSize.Z();
+      oldVol += IGN_CYLINDER_VOLUME(oldSize.X() * 0.5, oldSize.Z());
+      newVol += IGN_CYLINDER_VOLUME(newSize.X() * 0.5, newSize.Z());
     }
     else
     {
       // box, mesh, and other geometry types - use bounding box
-      oldVol += oldSize.X() * oldSize.Y() * oldSize.Z();
-      newVol += newSize.X() * newSize.Y() * newSize.Z();
+      oldVol += IGN_BOX_VOLUME_V(oldSize);
+      newVol += IGN_BOX_VOLUME_V(newSize);
     }
   }
 
@@ -316,8 +359,8 @@ void LinkData::SetScale(const ignition::math::Vector3d &_scale)
   {
     auto const &it = this->collisions.begin();
     std::string geomStr = it->first->GetGeometryType();
-    dInertiaScale = colNewSizes[it->first->GetName()] /
-        colOldSizes[it->first->GetName()];
+    dInertiaScale = colNewSizes[it->first->Name()] /
+        colOldSizes[it->first->Name()];
     if (geomStr == "sphere")
     {
       // solve for r^2
@@ -397,36 +440,64 @@ void LinkData::SetScale(const ignition::math::Vector3d &_scale)
   sdf::ElementPtr inertialPoseElem = inertialElem->GetElement("pose");
   ignition::math::Pose3d newPose =
       inertialPoseElem->Get<ignition::math::Pose3d>();
-  newPose.Pos() *= dScale;
 
-  inertialPoseElem->Set(newPose);
-  linkConfig->SetInertialPose(newPose);
-
-  this->scale = _scale;
+  // FIXME: Not updating the CoM pose. Reimplement this using
+  // ignition::math::Inertial
 }
 
 /////////////////////////////////////////////////
-ignition::math::Vector3d LinkData::Scale() const
+void LinkData::SetScales(
+    const std::map<std::string, ignition::math::Vector3d> &_scales)
 {
-  return this->scale;
+  this->UpdateInspectorScale();
+
+  this->scales = _scales;
+}
+
+/////////////////////////////////////////////////
+const std::map<std::string, ignition::math::Vector3d> &LinkData::Scales() const
+{
+  return this->scales;
 }
 
 /////////////////////////////////////////////////
 void LinkData::Load(sdf::ElementPtr _sdf)
 {
+  if (!_sdf)
+  {
+    gzwarn << "NULL SDF pointer, not loading link data." << std::endl;
+    return;
+  }
+
   LinkConfig *linkConfig = this->inspector->GetLinkConfig();
 
   this->SetName(_sdf->Get<std::string>("name"));
   this->SetPose(_sdf->Get<ignition::math::Pose3d>("pose"));
 
-  msgs::LinkPtr linkMsgPtr(new msgs::Link);
-  if (_sdf->HasElement("inertial"))
+  // Clone SDF except for visuals and collisions, which will be handled
+  // separately
+  this->linkSDF = _sdf->Clone();
+
+  auto elem = this->linkSDF->GetElement("visual");
+  while (elem)
   {
-    sdf::ElementPtr inertialElem = _sdf->GetElement("inertial");
-    this->linkSDF->GetElement("inertial")->Copy(inertialElem);
+    this->linkSDF->RemoveChild(elem);
+    elem = elem->GetNextElement("visual");
+  }
+  elem = this->linkSDF->GetElement("collision");
+  while (elem)
+  {
+    this->linkSDF->RemoveChild(elem);
+    elem = elem->GetNextElement("collision");
+  }
+
+  // TODO: Use msgs::LinkFromSDF once that's available (issue #1903)
+  msgs::LinkPtr linkMsgPtr(new msgs::Link);
+  if (this->linkSDF->HasElement("inertial"))
+  {
+    sdf::ElementPtr inertialElem = this->linkSDF->GetElement("inertial");
 
     msgs::Inertial *inertialMsg = linkMsgPtr->mutable_inertial();
-
     if (inertialElem->HasElement("mass"))
     {
       this->mass = inertialElem->Get<double>("mass");
@@ -454,43 +525,134 @@ void LinkData::Load(sdf::ElementPtr _sdf)
       inertialMsg->set_iyz(inertiaElem->Get<double>("iyz"));
     }
   }
-  if (_sdf->HasElement("self_collide"))
+  if (this->linkSDF->HasElement("self_collide"))
   {
-    sdf::ElementPtr selfCollideSDF = _sdf->GetElement("self_collide");
+    sdf::ElementPtr selfCollideSDF = this->linkSDF->GetElement("self_collide");
     linkMsgPtr->set_self_collide(selfCollideSDF->Get<bool>(""));
-    this->linkSDF->InsertElement(selfCollideSDF->Clone());
   }
-  if (_sdf->HasElement("kinematic"))
+  if (_sdf->HasElement("enable_wind"))
   {
-    sdf::ElementPtr kinematicSDF = _sdf->GetElement("kinematic");
+    sdf::ElementPtr enableWindSDF = this->linkSDF->GetElement("enable_wind");
+    linkMsgPtr->set_enable_wind(enableWindSDF->Get<bool>(""));
+  }
+  if (this->linkSDF->HasElement("kinematic"))
+  {
+    sdf::ElementPtr kinematicSDF = this->linkSDF->GetElement("kinematic");
     linkMsgPtr->set_kinematic(kinematicSDF->Get<bool>());
-    this->linkSDF->InsertElement(kinematicSDF->Clone());
   }
-  if (_sdf->HasElement("must_be_base_link"))
-  {
-    sdf::ElementPtr baseLinkSDF = _sdf->GetElement("must_be_base_link");
-    // TODO link.proto is missing the must_be_base_link field.
-    // linkMsgPtr->set_must_be_base_link(baseLinkSDF->Get<bool>());
-    this->linkSDF->InsertElement(baseLinkSDF->Clone());
-  }
-  if (_sdf->HasElement("velocity_decay"))
-  {
-    sdf::ElementPtr velocityDecaySDF = _sdf->GetElement("velocity_decay");
-    // TODO link.proto is missing the velocity_decay field.
-    // linkMsgPtr->set_velocity_decay(velocityDecaySDF->Get<double>());
-    this->linkSDF->InsertElement(velocityDecaySDF->Clone());
-  }
-  linkConfig->Update(linkMsgPtr);
 
-  if (_sdf->HasElement("sensor"))
+  // TODO link.proto is missing the must_be_base_link field.
+  // if (this->linkSDF->HasElement("must_be_base_link"))
+  // {
+  //   sdf::ElementPtr baseLinkSDF =
+  //       this->linkSDF->GetElement("must_be_base_link");
+  //   linkMsgPtr->set_must_be_base_link(baseLinkSDF->Get<bool>());
+  // }
+
+  // TODO link.proto is missing the velocity_decay field.
+  // if (this->linkSDF->HasElement("velocity_decay"))
+  // {
+  //   sdf::ElementPtr velocityDecaySDF =
+  //       this->linkSDF->GetElement("velocity_decay");
+  //   linkMsgPtr->set_velocity_decay(velocityDecaySDF->Get<double>());
+  // }
+
+  linkConfig->Update(linkMsgPtr);
+}
+
+/////////////////////////////////////////////////
+void LinkData::OnShowCollision(const bool _show, const std::string &_name)
+{
+  for (auto col : this->collisions)
   {
-    sdf::ElementPtr sensorElem = _sdf->GetElement("sensor");
-    while (sensorElem)
+    auto leafName = col.first->Name();
+    size_t idx = leafName.rfind("::");
+    if (idx != std::string::npos)
+      leafName = leafName.substr(idx+2);
+
+    // Only show one collision
+    if (leafName == _name)
     {
-      this->linkSDF->InsertElement(sensorElem->Clone());
-      sensorElem = sensorElem->GetNextElement("sensor");
+      col.first->SetVisible(_show);
+      return;
     }
   }
+}
+
+/////////////////////////////////////////////////
+void LinkData::OnShowVisual(const bool _show, const std::string &_name)
+{
+  for (auto col : this->visuals)
+  {
+    auto leafName = col.first->Name();
+    size_t idx = leafName.rfind("::");
+    if (idx != std::string::npos)
+      leafName = leafName.substr(idx+2);
+
+    // Only show one visual
+    if (leafName == _name)
+    {
+      col.first->SetVisible(_show);
+      return;
+    }
+  }
+}
+
+/////////////////////////////////////////////////
+void LinkData::ShowCollisions(const bool _show)
+{
+  this->showCollisions = _show;
+
+  // Check inspector button
+  this->inspector->SetShowCollisions(_show);
+
+  auto config = this->inspector->GetCollisionConfig();
+
+  for (auto col : this->collisions)
+  {
+    auto leafName = col.first->Name();
+    size_t idx = leafName.rfind("::");
+    if (idx != std::string::npos)
+      leafName = leafName.substr(idx+2);
+
+    // Show all collisions and set button checked
+    config->SetShowCollision(_show, leafName);
+    col.first->SetVisible(_show);
+  }
+}
+
+/////////////////////////////////////////////////
+void LinkData::ShowVisuals(const bool _show)
+{
+  this->showVisuals = _show;
+
+  // Check inspector button
+  this->inspector->SetShowVisuals(_show);
+
+  auto config = this->inspector->GetVisualConfig();
+
+  for (auto col : this->visuals)
+  {
+    auto leafName = col.first->Name();
+    size_t idx = leafName.rfind("::");
+    if (idx != std::string::npos)
+      leafName = leafName.substr(idx+2);
+
+    // Show all visuals and set button checked
+    config->SetShowVisual(_show, leafName);
+    col.first->SetVisible(_show);
+  }
+}
+
+/////////////////////////////////////////////////
+void LinkData::ShowLinkFrame(const bool _show)
+{
+  this->showLinkFrame = _show;
+
+  // Check inspector button
+  this->inspector->SetShowLinkFrame(_show);
+
+  this->linkFrameVis->SetVisible(_show);
 }
 
 /////////////////////////////////////////////////
@@ -500,7 +662,7 @@ void LinkData::UpdateConfig()
   VisualConfig *visualConfig = this->inspector->GetVisualConfig();
   for (auto &it : this->visuals)
   {
-    std::string name = it.first->GetName();
+    std::string name = it.first->Name();
     std::string leafName = name;
     size_t idx = name.rfind("::");
     if (idx != std::string::npos)
@@ -532,7 +694,7 @@ void LinkData::UpdateConfig()
   CollisionConfig *collisionConfig = this->inspector->GetCollisionConfig();
   for (auto &colIt : this->collisions)
   {
-    std::string name = colIt.first->GetName();
+    std::string name = colIt.first->Name();
     std::string leafName = name;
     size_t idx = name.rfind("::");
     if (idx != std::string::npos)
@@ -553,15 +715,19 @@ void LinkData::AddVisual(rendering::VisualPtr _visual)
   VisualConfig *visualConfig = this->inspector->GetVisualConfig();
   msgs::Visual visualMsg = msgs::VisualFromSDF(_visual->GetSDF());
 
-  this->visuals[_visual] = visualMsg;
+  _visual->SetVisible(this->showVisuals);
 
-  std::string visName = _visual->GetName();
+  this->visuals[_visual] = visualMsg;
+  this->scales[_visual->Name()] = _visual->GetGeometrySize();
+
+  std::string visName = _visual->Name();
   std::string leafName = visName;
   size_t idx = visName.rfind("::");
   if (idx != std::string::npos)
     leafName = visName.substr(idx+2);
 
   visualConfig->AddVisual(leafName, &visualMsg);
+  this->linkFrameVis->RecalculateScale();
 }
 
 /////////////////////////////////////////////////
@@ -573,7 +739,7 @@ void LinkData::AddCollision(rendering::VisualPtr _collisionVis,
   sdf::ElementPtr collisionSDF(new sdf::Element);
   sdf::initFile("collision.sdf", collisionSDF);
 
-  std::string visName = _collisionVis->GetName();
+  std::string visName = _collisionVis->Name();
   std::string leafName = visName;
   size_t idx = visName.rfind("::");
   if (idx != std::string::npos)
@@ -596,19 +762,26 @@ void LinkData::AddCollision(rendering::VisualPtr _collisionVis,
     poseMsg->CopyFrom(visualMsg.pose());
   }
 
+  _collisionVis->SetVisible(this->showCollisions);
+
   this->collisions[_collisionVis] = collisionMsg;
+  this->scales[_collisionVis->Name()] = _collisionVis->GetGeometrySize();
   collisionConfig->AddCollision(leafName, &collisionMsg);
+
+  this->linkFrameVis->RecalculateScale();
 }
 
 /////////////////////////////////////////////////
 LinkData *LinkData::Clone(const std::string &_newName)
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
   LinkData *cloneLink = new LinkData();
+  auto cloneSDF = this->linkSDF->Clone();
 
-  cloneLink->Load(this->linkSDF);
+  cloneLink->Load(cloneSDF);
   cloneLink->SetName(_newName);
 
-  std::string linkVisualName = this->linkVisual->GetName();
+  std::string linkVisualName = this->linkVisual->Name();
   std::string cloneVisName = _newName;
   size_t linkIdx = linkVisualName.find("::");
   if (linkIdx != std::string::npos)
@@ -619,11 +792,11 @@ LinkData *LinkData::Clone(const std::string &_newName)
       this->linkVisual->GetParent()));
   linkVis->Load();
 
-  cloneLink->linkVisual = linkVis;
+  cloneLink->SetLinkVisual(linkVis);
 
   for (auto &visIt : this->visuals)
   {
-    std::string newVisName = visIt.first->GetName();
+    std::string newVisName = visIt.first->Name();
     size_t idx = newVisName.rfind("::");
     std::string leafName = newVisName.substr(idx+2);
     if (idx != std::string::npos)
@@ -632,7 +805,7 @@ LinkData *LinkData::Clone(const std::string &_newName)
       newVisName = cloneVisName + "::" + newVisName;
 
     rendering::VisualPtr cloneVis =
-        visIt.first->Clone(newVisName, cloneLink->linkVisual);
+        visIt.first->Clone(newVisName, cloneLink->LinkVisual());
 
     // store the leaf name in sdf not the full scoped name
     cloneVis->GetSDF()->GetAttribute("name")->Set(leafName);
@@ -647,7 +820,7 @@ LinkData *LinkData::Clone(const std::string &_newName)
 
   for (auto &colIt : this->collisions)
   {
-    std::string newColName = colIt.first->GetName();
+    std::string newColName = colIt.first->Name();
     size_t idx = newColName.rfind("::");
     std::string leafName = newColName.substr(idx+2);
     if (idx != std::string::npos)
@@ -655,7 +828,7 @@ LinkData *LinkData::Clone(const std::string &_newName)
     else
       newColName = cloneVisName + "::" + newColName;
     rendering::VisualPtr collisionVis = colIt.first->Clone(newColName,
-        cloneLink->linkVisual);
+        cloneLink->LinkVisual());
 
     // store the leaf name in sdf not the full scoped name
     collisionVis->GetSDF()->GetAttribute("name")->Set(leafName);
@@ -666,6 +839,213 @@ LinkData *LinkData::Clone(const std::string &_newName)
     cloneLink->AddCollision(collisionVis);
   }
   return cloneLink;
+}
+
+/////////////////////////////////////////////////
+double LinkData::ComputeVolume(const msgs::Collision &_collision)
+{
+  double volume = -1;
+
+  if (_collision.has_geometry())
+  {
+    const msgs::Geometry &geometry = _collision.geometry();
+    if (geometry.has_type())
+    {
+      switch (geometry.type())
+      {
+        case msgs::Geometry_Type_BOX:
+        case msgs::Geometry_Type_MESH:
+        case msgs::Geometry_Type_POLYLINE:
+          if (geometry.has_box())
+          {
+            const msgs::BoxGeom &box = geometry.box();
+            if (box.has_size())
+            {
+              const msgs::Vector3d &size = box.size();
+              volume = IGN_BOX_VOLUME(size.x(), size.y(), size.z());
+            }
+          }
+          break;
+
+        case msgs::Geometry_Type_CYLINDER:
+          if (geometry.has_cylinder())
+          {
+            const msgs::CylinderGeom &cylinder = geometry.cylinder();
+            if (cylinder.has_radius() && cylinder.has_length())
+            {
+              // Cylinder volume: PI * r^2 * height
+              volume = IGN_CYLINDER_VOLUME(cylinder.radius(),
+                                           cylinder.length());
+            }
+          }
+          break;
+
+        case msgs::Geometry_Type_SPHERE:
+          if (geometry.has_sphere())
+          {
+            const msgs::SphereGeom &sphere = geometry.sphere();
+            if (sphere.has_radius())
+            {
+              // Sphere volume: 4/3 * PI * r^3
+              volume = IGN_SPHERE_VOLUME(sphere.radius());
+            }
+          }
+          break;
+
+        default:
+          break;
+      }
+    }
+  }
+  return volume;
+}
+
+/////////////////////////////////////////////////
+ignition::math::Vector3d LinkData::ComputeMomentOfInertia(
+    const msgs::Collision &_collision, const double _mass)
+{
+  ignition::math::Vector3d result;
+  result.Set(0, 0, 0);
+
+  if (_collision.has_geometry())
+  {
+    const msgs::Geometry &geometry = _collision.geometry();
+    if (geometry.has_type())
+    {
+      switch (geometry.type())
+      {
+        case msgs::Geometry_Type_BOX:
+        case msgs::Geometry_Type_MESH:
+        case msgs::Geometry_Type_POLYLINE:
+          if (geometry.has_box())
+          {
+            const msgs::BoxGeom &box = geometry.box();
+            if (box.has_size())
+            {
+              // Box:
+              //    Ih = 1/12 * M * (w^2 + d^2)
+              //    Iw = 1/12 * M * (h^2 + d^2)
+              //    Id = 1/12 * M * (h^2 + w^2)
+              double h = box.size().x();
+              double h2 = h*h;
+              double w = box.size().y();
+              double w2 = w*w;
+              double d = box.size().z();
+              double d2 = d*d;
+
+              double Ih = 1.0 / 12.0 * _mass * (w2 + d2);
+              double Iw = 1.0 / 12.0 * _mass * (h2 + d2);
+              double Id = 1.0 / 12.0 * _mass * (h2 + w2);
+
+              result.Set(Ih, Iw, Id);
+            }
+          }
+          break;
+
+        case msgs::Geometry_Type_CYLINDER:
+          if (geometry.has_cylinder())
+          {
+            const msgs::CylinderGeom &cylinder = geometry.cylinder();
+            if (cylinder.has_radius() && cylinder.has_length())
+            {
+              // Cylinder:
+              //    central axis: I = 1/2 * M * R^2
+              //    other axes:   I = 1/4 * M * R^2 + 1/12 * M * L^2
+              double r = cylinder.radius();
+              double r2 = r*r;
+              double l = cylinder.length();
+              double l2 = l*l;
+              double Icentral = 1.0 / 2.0 * _mass * r2;
+              double Iother = (1.0 / 4.0 * _mass * r2) +
+                  (1.0 / 12.0 * _mass * l2);
+              result.Set(Iother, Iother, Icentral);
+            }
+          }
+          break;
+
+        case msgs::Geometry_Type_SPHERE:
+          if (geometry.has_sphere())
+          {
+            const msgs::SphereGeom &sphere = geometry.sphere();
+            if (sphere.has_radius())
+            {
+              // Sphere: I = 2/5 * M * R^2
+              double r = sphere.radius();
+              double r2 = r*r;
+              double I = 2.0 / 5.0 * _mass * r2;
+              result.Set(I, I, I);
+            }
+          }
+          break;
+
+        default:
+          break;
+      }
+    }
+  }
+  return result;
+}
+
+/////////////////////////////////////////////////
+double LinkData::ComputeVolume() const
+{
+  CollisionConfig *collisionConfig = this->inspector->GetCollisionConfig();
+  double volume = 0;
+
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
+  GZ_ASSERT(collisionConfig, "CollisionConfig is NULL");
+
+  for (auto const &it : this->collisions)
+  {
+    std::string name = it.first->Name();
+    std::string linkName = this->linkVisual->Name();
+
+    std::string leafName = name.substr(name.find(linkName)+linkName.size()+2);
+    std::string shape = it.first->GetGeometryType();
+
+    ignition::math::Vector3d size;
+    std::string uri;
+    collisionConfig->Geometry(leafName,  size, uri);
+
+    if (shape == "sphere")
+    {
+      // Sphere volume: 4/3 * PI * r^3
+      volume += IGN_SPHERE_VOLUME(size.X() * 0.5);
+    }
+    else if (shape == "cylinder")
+    {
+      // Cylinder volume: PI * r^2 * height
+      volume += IGN_CYLINDER_VOLUME(size.X() * 0.5, size.Z());
+    }
+    else
+    {
+      // Box, mesh, and other geometry types - use bounding box
+      volume += IGN_BOX_VOLUME_V(size);
+    }
+  }
+  return volume;
+}
+
+/////////////////////////////////////////////////
+void LinkData::SetLinkVisual(const rendering::VisualPtr _linkVisual)
+{
+  this->linkVisual = _linkVisual;
+
+  if (!this->linkFrameVis)
+  {
+    rendering::LinkFrameVisualPtr vis(new rendering::LinkFrameVisual(
+        _linkVisual->Name() + "_LINK_FRAME_VISUAL__", _linkVisual));
+    vis->Load();
+    vis->SetVisible(this->showLinkFrame);
+
+    this->linkFrameVis = vis;
+  }
+}
+
+/////////////////////////////////////////////////
+rendering::VisualPtr LinkData::LinkVisual() const
+{
+  return this->linkVisual;
 }
 
 /////////////////////////////////////////////////
@@ -705,7 +1085,9 @@ void LinkData::OnInspectorOpened()
 /////////////////////////////////////////////////
 bool LinkData::Apply()
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
   boost::recursive_mutex::scoped_lock lock(*this->updateMutex);
+
   LinkConfig *linkConfig = this->inspector->GetLinkConfig();
 
   msgs::Link *linkMsg = linkConfig->GetData();
@@ -732,7 +1114,7 @@ bool LinkData::Apply()
     VisualConfig *visualConfig = this->inspector->GetVisualConfig();
     for (auto &it : this->visuals)
     {
-      std::string name = it.first->GetName();
+      std::string name = it.first->Name();
       std::string leafName = name;
       size_t idx = name.rfind("::");
       if (idx != std::string::npos)
@@ -795,8 +1177,13 @@ bool LinkData::Apply()
         {
           msgs::MeshGeom *meshGeom = geomMsg->mutable_mesh();
           QFileInfo info(QString::fromStdString(meshGeom->filename()));
-          if (!info.isFile() || (info.completeSuffix().toLower() != "dae" &&
-              info.completeSuffix().toLower() != "stl"))
+
+          std::string suffix;
+          if (info.isFile())
+            suffix = info.completeSuffix().toLower().toStdString();
+
+          if (!info.isFile() || (suffix != "dae" && suffix != "stl" &&
+              suffix != "obj"))
           {
             std::string msg = "\"" + meshGeom->filename() +
                 "\" is not a valid mesh file.\nPlease select another file for ["
@@ -865,7 +1252,7 @@ bool LinkData::Apply()
         this->inspector->GetCollisionConfig();
     for (auto &it : this->collisions)
     {
-      std::string name = it.first->GetName();
+      std::string name = it.first->Name();
       std::string leafName = name;
       size_t idx = name.rfind("::");
       if (idx != std::string::npos)
@@ -928,8 +1315,13 @@ bool LinkData::Apply()
         {
           msgs::MeshGeom *meshGeom = geomMsg->mutable_mesh();
           QFileInfo info(QString::fromStdString(meshGeom->filename()));
-          if (!info.isFile() || (info.completeSuffix().toLower() != "dae" &&
-              info.completeSuffix().toLower() != "stl"))
+
+          std::string suffix;
+          if (info.isFile())
+            suffix = info.completeSuffix().toLower().toStdString();
+
+          if (!info.isFile() || (suffix != "dae" && suffix != "stl" &&
+              suffix != "obj"))
           {
             std::string msg = "\"" + meshGeom->filename() +
                 "\" is not a valid mesh file.\nPlease select another file for ["
@@ -960,11 +1352,13 @@ bool LinkData::Apply()
 /////////////////////////////////////////////////
 void LinkData::OnAddVisual(const std::string &_name)
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
+
   // add a visual when the user adds a visual via the inspector's visual tab
   VisualConfig *visualConfig = this->inspector->GetVisualConfig();
 
   std::ostringstream visualName;
-  visualName << this->linkVisual->GetName() << "::" << _name;
+  visualName << this->linkVisual->Name() << "::" << _name;
 
   rendering::VisualPtr visVisual;
   msgs::Visual visualMsg;
@@ -973,7 +1367,7 @@ void LinkData::OnAddVisual(const std::string &_name)
   for (auto it = this->deletedVisuals.begin();
       it != this->deletedVisuals.end(); ++it)
   {
-    if (it->first->GetName() == visualName.str())
+    if (it->first->Name() == visualName.str())
     {
       visVisual = it->first;
       visVisual->SetVisible(true);
@@ -1011,7 +1405,11 @@ void LinkData::OnAddVisual(const std::string &_name)
   msgs::VisualPtr visualMsgPtr(new msgs::Visual);
   visualMsgPtr->CopyFrom(visualMsg);
   visualConfig->UpdateVisual(_name, visualMsgPtr);
+
+  visVisual->SetVisible(this->showVisuals);
+  visualConfig->SetShowVisual(this->showVisuals, _name);
   this->visuals[visVisual] = visualMsg;
+  this->scales[visVisual->Name()] = visVisual->GetGeometrySize();
   visVisual->SetTransparency(visualMsg.transparency() *
       (1-ModelData::GetEditTransparency()-0.1)
       + ModelData::GetEditTransparency());
@@ -1020,12 +1418,14 @@ void LinkData::OnAddVisual(const std::string &_name)
 /////////////////////////////////////////////////
 void LinkData::OnAddCollision(const std::string &_name)
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
+
   // add a collision when the user adds a collision via the inspector's
   // collision tab
   CollisionConfig *collisionConfig = this->inspector->GetCollisionConfig();
 
   std::stringstream collisionName;
-  collisionName << this->linkVisual->GetName() << "::" << _name;
+  collisionName << this->linkVisual->Name() << "::" << _name;
 
   rendering::VisualPtr collisionVis;
   msgs::Collision collisionMsg;
@@ -1034,7 +1434,7 @@ void LinkData::OnAddCollision(const std::string &_name)
   for (auto it = this->deletedCollisions.begin();
       it != this->deletedCollisions.end(); ++it)
   {
-    if (it->first->GetName() == collisionName.str())
+    if (it->first->Name() == collisionName.str())
     {
       collisionVis = it->first;
       collisionVis->SetVisible(true);
@@ -1077,7 +1477,11 @@ void LinkData::OnAddCollision(const std::string &_name)
   msgs::CollisionPtr collisionMsgPtr(new msgs::Collision);
   collisionMsgPtr->CopyFrom(collisionMsg);
   collisionConfig->UpdateCollision(_name, collisionMsgPtr);
+
+  collisionVis->SetVisible(this->showCollisions);
+  collisionConfig->SetShowCollision(this->showCollisions, _name);
   this->collisions[collisionVis] = collisionMsg;
+  this->scales[collisionVis->Name()] = collisionVis->GetGeometrySize();
 
   collisionVis->SetTransparency(
       ignition::math::clamp(ModelData::GetEditTransparency() * 2.0, 0.0, 0.8));
@@ -1087,19 +1491,23 @@ void LinkData::OnAddCollision(const std::string &_name)
 /////////////////////////////////////////////////
 void LinkData::OnRemoveVisual(const std::string &_name)
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
+
   // find and remove visual when the user removes it in the
   // inspector's visual tab
   std::ostringstream name;
-  name << this->linkVisual->GetName() << "::" << _name;
+  name << this->linkVisual->Name() << "::" << _name;
   std::string visualName = name.str();
 
   for (auto it = this->visuals.begin(); it != this->visuals.end(); ++it)
   {
-    if (visualName == it->first->GetName())
+    if (visualName == it->first->Name())
     {
       it->first->SetVisible(false);
 
       this->deletedVisuals[it->first] = it->second;
+      this->scales.erase(visualName);
+
       this->visuals.erase(it);
       break;
     }
@@ -1109,19 +1517,23 @@ void LinkData::OnRemoveVisual(const std::string &_name)
 /////////////////////////////////////////////////
 void LinkData::OnRemoveCollision(const std::string &_name)
 {
+  GZ_ASSERT(this->linkVisual, "LinkVisual is NULL");
+
   // find and remove collision visual when the user removes it in the
   // inspector's collision tab
   std::ostringstream name;
-  name << this->linkVisual->GetName() << "::" << _name;
+  name << this->linkVisual->Name() << "::" << _name;
   std::string collisionName = name.str();
 
   for (auto it = this->collisions.begin(); it != this->collisions.end(); ++it)
   {
-    if (collisionName == it->first->GetName())
+    if (collisionName == it->first->Name())
     {
       it->first->SetVisible(false);
 
       this->deletedCollisions[it->first] = it->second;
+      this->scales.erase(collisionName);
+
       this->collisions.erase(it);
       break;
     }
@@ -1147,6 +1559,9 @@ void LinkData::Update()
         // make visual semi-transparent here
         // but generated sdf will use the correct transparency value
         it.first->UpdateFromMsg(updateMsgPtr);
+
+        this->scales[it.first->Name()] = it.first->GetGeometrySize();
+
         it.first->SetTransparency(updateMsgPtr->transparency() *
             (1-ModelData::GetEditTransparency()-0.1)
             + ModelData::GetEditTransparency());
@@ -1174,6 +1589,8 @@ void LinkData::Update()
         updateMsgPtr->CopyFrom(collisionVisMsg);
         std::string origGeomType = it.first->GetGeometryType();
         it.first->UpdateFromMsg(updateMsgPtr);
+
+        this->scales[it.first->Name()] = it.first->GetGeometrySize();
 
         // fix for transparency alpha compositing
         if (it.first->GetGeometryType() != origGeomType)

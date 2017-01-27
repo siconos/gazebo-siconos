@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,26 +55,11 @@ namespace gazebo
 
       /// \brief Returns the minimum frequency filtered (MHz).
       /// \return Reception frequency (MHz).
-      /// \deprecated See MinFreqFiltered()
-      public: double GetMinFreqFiltered() const GAZEBO_DEPRECATED(7.0);
-
-      /// \brief Returns the minimum frequency filtered (MHz).
-      /// \return Reception frequency (MHz).
       public: double MinFreqFiltered() const;
 
       /// \brief Returns the maximum frequency filtered (MHz).
       /// \return Reception frequency (MHz).
-      /// \deprecated See MaxFreqFiltered()
-      public: double GetMaxFreqFiltered() const GAZEBO_DEPRECATED(7.0);
-
-      /// \brief Returns the maximum frequency filtered (MHz).
-      /// \return Reception frequency (MHz).
       public: double MaxFreqFiltered() const;
-
-      /// \brief Returns the receiver sensitivity (dBm).
-      /// \return Receiver sensitivity (dBm).
-      /// \deprecated See Sensitivity()
-      public: double GetSensitivity() const GAZEBO_DEPRECATED(7.0);
 
       /// \brief Returns the receiver sensitivity (dBm).
       /// \return Receiver sensitivity (dBm).

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Open Source Robotics Foundation
+ * Copyright (C) 2014 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <string>
 #include <boost/filesystem.hpp>
 
+#include "test_config.h"
 #include "gazebo/gazebo_config.h"
 
 ///////////////////////////////////////////////////////////////////
@@ -38,7 +39,7 @@ boost::filesystem::path createTempBuildFolder(const std::string &_prefix)
 boost::filesystem::path getSourcePath(const std::string &_folder,
                                       const std::string &_suffix)
 {
-  boost::filesystem::path path = CMAKE_SOURCE_DIR;
+  boost::filesystem::path path = PROJECT_SOURCE_PATH;
   path /= std::string("examples");
   path /= _folder;
   path /= _suffix;
@@ -120,6 +121,8 @@ auto standaloneValues = ::testing::Values(
   , "clone_simulation"
   , "custom_main"
   , "custom_main_pkgconfig"
+  , "harness"
+  , "introspection_client"
   , "listener"
   , "publisher"
 #ifndef BUILD_TYPE_COVERAGE

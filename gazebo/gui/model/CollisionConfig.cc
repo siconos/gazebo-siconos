@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,10 +57,14 @@ CollisionConfig::CollisionConfig()
   this->setLayout(mainLayout);
 
   this->counter = 0;
-  this->signalMapper = new QSignalMapper(this);
 
-  connect(this->signalMapper, SIGNAL(mapped(int)),
+  this->mapperRemove = new QSignalMapper(this);
+  this->connect(this->mapperRemove, SIGNAL(mapped(int)),
      this, SLOT(OnRemoveCollision(int)));
+
+  this->mapperShow = new QSignalMapper(this);
+  this->connect(this->mapperShow, SIGNAL(mapped(int)),
+     this, SLOT(OnShowCollision(int)));
 }
 
 /////////////////////////////////////////////////
@@ -160,6 +164,20 @@ void CollisionConfig::AddCollision(const std::string &_name,
         image: url(:/images/down_arrow.png);\
       }");
 
+  // Show button
+  auto showCollisionButton = new QToolButton(this);
+  showCollisionButton->setObjectName(
+      "showCollisionButton_" + QString(_name.c_str()));
+  showCollisionButton->setFixedSize(QSize(30, 30));
+  showCollisionButton->setToolTip("Show/hide " + QString(_name.c_str()));
+  showCollisionButton->setIcon(QPixmap(":/images/eye.png"));
+  showCollisionButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  showCollisionButton->setIconSize(QSize(16, 16));
+  showCollisionButton->setCheckable(true);
+  this->connect(showCollisionButton, SIGNAL(clicked()), this->mapperShow,
+      SLOT(map()));
+  this->mapperShow->setMapping(showCollisionButton, this->counter);
+
   // Remove button
   QToolButton *removeCollisionButton = new QToolButton(this);
   removeCollisionButton->setObjectName(
@@ -170,14 +188,15 @@ void CollisionConfig::AddCollision(const std::string &_name,
   removeCollisionButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
   removeCollisionButton->setIconSize(QSize(16, 16));
   removeCollisionButton->setCheckable(false);
-  connect(removeCollisionButton, SIGNAL(clicked()), this->signalMapper,
+  connect(removeCollisionButton, SIGNAL(clicked()), this->mapperRemove,
       SLOT(map()));
-  this->signalMapper->setMapping(removeCollisionButton, this->counter);
+  this->mapperRemove->setMapping(removeCollisionButton, this->counter);
 
   // Header Layout
   QHBoxLayout *headerLayout = new QHBoxLayout;
   headerLayout->setContentsMargins(0, 0, 0, 0);
   headerLayout->addWidget(headerButton);
+  headerLayout->addWidget(showCollisionButton);
   headerLayout->addWidget(removeCollisionButton);
 
   // Header widget
@@ -264,8 +283,18 @@ void CollisionConfig::AddCollision(const std::string &_name,
   configData->id =  this->counter;
   configData->widget = item;
   configData->name = _name;
-  connect(headerButton, SIGNAL(toggled(bool)), configData,
-           SLOT(OnToggleItem(bool)));
+
+  this->connect(headerButton, SIGNAL(toggled(bool)), configData,
+      SLOT(OnToggleItem(bool)));
+
+  this->connect(configWidget, SIGNAL(GeometryChanged()), configData,
+      SLOT(OnGeometryChanged()));
+
+  this->connect(configData, SIGNAL(CollisionChanged(
+      const std::string &, const std::string &)),
+      this, SLOT(OnCollisionChanged(
+      const std::string &, const std::string &)));
+
   this->configs[this->counter] = configData;
   this->addedConfigs[this->counter] = configData;
 
@@ -285,35 +314,40 @@ void CollisionConfig::OnRemoveCollision(int _id)
   CollisionConfigData *configData = this->configs[_id];
 
   // Ask for confirmation
-  std::string msg;
-
-  if (this->configs.size() == 1)
+  // Don't open the dialog during tests, see issue #1963
+  auto inTest = getenv("IN_TESTSUITE");
+  if (!inTest)
   {
-    msg = "Are you sure you want to remove " +
-        configData->name + "?\n\n" +
-        "This is the only collision. \n" +
-        "Without collisions, this link won't collide with anything.\n";
-  }
-  else
-  {
-    msg = "Are you sure you want to remove " +
-        configData->name + "?\n";
-  }
+    std::string msg;
 
-  QMessageBox msgBox(QMessageBox::Warning, QString("Remove collision?"),
-      QString(msg.c_str()));
-  msgBox.setWindowFlags(Qt::Window | Qt::WindowTitleHint |
-      Qt::WindowStaysOnTopHint | Qt::CustomizeWindowHint);
+    if (this->configs.size() == 1)
+    {
+      msg = "Are you sure you want to remove " +
+          configData->name + "?\n\n" +
+          "This is the only collision. \n" +
+          "Without collisions, this link won't collide with anything.\n";
+    }
+    else
+    {
+      msg = "Are you sure you want to remove " +
+          configData->name + "?\n";
+    }
 
-  QPushButton *cancelButton =
-      msgBox.addButton("Cancel", QMessageBox::RejectRole);
-  QPushButton *removeButton = msgBox.addButton("Remove",
-      QMessageBox::AcceptRole);
-  msgBox.setDefaultButton(removeButton);
-  msgBox.setEscapeButton(cancelButton);
-  msgBox.exec();
-  if (msgBox.clickedButton() && msgBox.clickedButton() != removeButton)
-    return;
+    QMessageBox msgBox(QMessageBox::Warning, QString("Remove collision?"),
+        QString(msg.c_str()));
+    msgBox.setWindowFlags(Qt::Window | Qt::WindowTitleHint |
+        Qt::WindowStaysOnTopHint | Qt::CustomizeWindowHint);
+
+    QPushButton *cancelButton =
+        msgBox.addButton("Cancel", QMessageBox::RejectRole);
+    QPushButton *removeButton = msgBox.addButton("Remove",
+        QMessageBox::AcceptRole);
+    msgBox.setDefaultButton(removeButton);
+    msgBox.setEscapeButton(cancelButton);
+    msgBox.exec();
+    if (msgBox.clickedButton() && msgBox.clickedButton() != removeButton)
+      return;
+  }
 
   // Remove
   this->listLayout->removeWidget(configData->widget);
@@ -332,6 +366,40 @@ void CollisionConfig::OnRemoveCollision(int _id)
   {
     this->addedConfigs.erase(itAdded);
   }
+}
+
+/////////////////////////////////////////////////
+void CollisionConfig::SetShowCollision(const bool _show,
+    const std::string &_name)
+{
+  auto button = this->findChild<QToolButton *>("showCollisionButton_" +
+      QString(_name.c_str()));
+
+  if (button)
+    button->setChecked(_show);
+}
+
+/////////////////////////////////////////////////
+void CollisionConfig::OnShowCollision(const int _id)
+{
+  auto it = this->configs.find(_id);
+  if (it == this->configs.end())
+  {
+    gzerr << "Collision not found " << std::endl;
+    return;
+  }
+
+  auto button = qobject_cast<QToolButton *>(this->mapperShow->mapping(_id));
+  if (!button)
+  {
+    gzerr << "Couldn't find button with ID [" << _id << "]" << std::endl;
+    return;
+  }
+
+  bool showCol = button->isChecked();
+
+  auto configData = this->configs[_id];
+  this->ShowCollision(showCol, configData->name);
 }
 
 /////////////////////////////////////////////////
@@ -439,12 +507,25 @@ void CollisionConfig::RestoreOriginalData()
 }
 
 /////////////////////////////////////////////////
+void CollisionConfig::OnCollisionChanged(const std::string &_name,
+    const std::string &_type)
+{
+  emit CollisionChanged(_name, _type);
+}
+
+/////////////////////////////////////////////////
 void CollisionConfigData::OnToggleItem(bool _checked)
 {
   if (_checked)
     this->configWidget->show();
   else
     this->configWidget->hide();
+}
+
+/////////////////////////////////////////////////
+void CollisionConfigData::OnGeometryChanged()
+{
+  emit CollisionChanged(this->name, "geometry");
 }
 
 /////////////////////////////////////////////////

@@ -1,5 +1,5 @@
  /*
- * Copyright (C) 2013-2016 Open Source Robotics Foundation
+ * Copyright (C) 2013 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include "gazebo/common/ModelDatabase.hh"
 #include "gazebo/test/ServerFixture.hh"
+#include "test_config.h"
 
 using namespace gazebo;
 
@@ -166,7 +167,7 @@ TEST_F(ModelDatabaseTest, Version)
   // add test model cococan to path so that the model database
   // can pick it up
   gazebo::common::SystemPaths::Instance()->AddModelPaths(
-    CMAKE_SOURCE_DIR "/test/models/testdb");
+    PROJECT_SOURCE_PATH "/test/models/testdb");
 
   std::string uri = "model://cococan";
   std::string model;

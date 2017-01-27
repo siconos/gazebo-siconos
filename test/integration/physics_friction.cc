@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ class PhysicsFrictionTest : public ServerFixture,
             : modelName(_name), world(_world), friction(0.0)
             {
               // Get the model pointer
-              model = world->GetModel(modelName);
+              model = world->ModelByName(modelName);
 
               // Get the friction coefficient
               physics::LinkPtr link = model->GetLink();
@@ -190,20 +190,24 @@ void PhysicsFrictionTest::FrictionDemo(const std::string &_physicsEngine,
   ASSERT_TRUE(world != NULL);
 
   // check the gravity vector
-  physics::PhysicsEnginePtr physics = world->GetPhysicsEngine();
+  physics::PhysicsEnginePtr physics = world->Physics();
   ASSERT_TRUE(physics != NULL);
   EXPECT_EQ(physics->GetType(), _physicsEngine);
-  math::Vector3 g = physics->GetGravity();
+  auto g = world->Gravity();
 
   // Custom gravity vector for this demo world.
-  EXPECT_DOUBLE_EQ(g.x, 0);
-  EXPECT_DOUBLE_EQ(g.y, -1.0);
-  EXPECT_DOUBLE_EQ(g.z, -1.0);
+  EXPECT_DOUBLE_EQ(g.X(), 0);
+  EXPECT_DOUBLE_EQ(g.Y(), -1.0);
+  EXPECT_DOUBLE_EQ(g.Z(), -1.0);
 
   if (_physicsEngine == "ode")
   {
     // Set solver type
     physics->SetParam("solver_type", _solverType);
+    if (_solverType == "world")
+    {
+      physics->SetParam("ode_quiet", true);
+    }
 
     // Set world step solver type
     physics->SetParam("world_step_solver", _worldSolverType);
@@ -225,11 +229,11 @@ void PhysicsFrictionTest::FrictionDemo(const std::string &_physicsEngine,
     ASSERT_GT(box->friction, 0.0);
   }
 
-  common::Time t = world->GetSimTime();
+  common::Time t = world->SimTime();
   while (t.sec < 10)
   {
     world->Step(500);
-    t = world->GetSimTime();
+    t = world->SimTime();
 
     double yTolerance = g_friction_tolerance;
     if (_solverType == "world")
@@ -242,15 +246,15 @@ void PhysicsFrictionTest::FrictionDemo(const std::string &_physicsEngine,
 
     for (box = boxes.begin(); box != boxes.end(); ++box)
     {
-      math::Vector3 vel = box->model->GetWorldLinearVel();
-      EXPECT_NEAR(vel.x, 0, g_friction_tolerance);
-      EXPECT_NEAR(vel.z, 0, yTolerance);
+      ignition::math::Vector3d vel = box->model->WorldLinearVel();
+      EXPECT_NEAR(vel.X(), 0, g_friction_tolerance);
+      EXPECT_NEAR(vel.Z(), 0, yTolerance);
 
       // Coulomb friction model
       if (box->friction >= 1.0)
       {
         // Friction is large enough to prevent motion
-        EXPECT_NEAR(vel.y, 0, yTolerance);
+        EXPECT_NEAR(vel.Y(), 0, yTolerance);
       }
       else
       {
@@ -263,7 +267,7 @@ void PhysicsFrictionTest::FrictionDemo(const std::string &_physicsEngine,
           vyTolerance *= 22;
         }
 #endif
-        EXPECT_NEAR(vel.y, (g.y + box->friction) * t.Double(),
+        EXPECT_NEAR(vel.Y(), (g.Y() + box->friction) * t.Double(),
                     vyTolerance);
       }
     }
@@ -288,13 +292,13 @@ void PhysicsFrictionTest::MaximumDissipation(const std::string &_physicsEngine)
   ASSERT_TRUE(world != NULL);
 
   // Verify physics engine type
-  physics::PhysicsEnginePtr physics = world->GetPhysicsEngine();
+  physics::PhysicsEnginePtr physics = world->Physics();
   ASSERT_TRUE(physics != NULL);
   EXPECT_EQ(physics->GetType(), _physicsEngine);
 
   // get the gravity vector
   // small positive y component
-  math::Vector3 g = physics->GetGravity();
+  auto g = world->Gravity();
 
   // Set friction model
   // "cone_model", "pyramid_model", "box_model"
@@ -356,9 +360,9 @@ void PhysicsFrictionTest::MaximumDissipation(const std::string &_physicsEngine)
   {
     double cosAngle = cos(iter->second);
     double sinAngle = sin(iter->second);
-    math::Vector3 pos = iter->first->GetWorldPose().pos;
-    double cosPosAngle = pos.x / pos.GetLength();
-    double sinPosAngle = pos.y / pos.GetLength();
+    ignition::math::Vector3d pos = iter->first->WorldPose().Pos();
+    double cosPosAngle = pos.X() / pos.Length();
+    double sinPosAngle = pos.Y() / pos.Length();
     EXPECT_NEAR(cosAngle, cosPosAngle, 1e-2);
     EXPECT_NEAR(sinAngle, sinPosAngle, 1e-2);
   }
@@ -397,13 +401,13 @@ void PhysicsFrictionTest::BoxDirectionRing(const std::string &_physicsEngine)
   ASSERT_TRUE(world != NULL);
 
   // Verify physics engine type
-  physics::PhysicsEnginePtr physics = world->GetPhysicsEngine();
+  physics::PhysicsEnginePtr physics = world->Physics();
   ASSERT_TRUE(physics != NULL);
   EXPECT_EQ(physics->GetType(), _physicsEngine);
 
   // set the gravity vector
-  math::Vector3 g(0.0, 1.0, -9.81);
-  physics->SetGravity(g);
+  ignition::math::Vector3d g(0.0, 1.0, -9.81);
+  world->SetGravity(g);
 
   // Spawn concentric semi-circles of boxes
   int boxes = 10;
@@ -450,7 +454,7 @@ void PhysicsFrictionTest::BoxDirectionRing(const std::string &_physicsEngine)
 
   // Step forward
   world->Step(1500);
-  double t = world->GetSimTime().Double();
+  double t = world->SimTime().Double();
 
   gzdbg << "Checking velocity after " << t << " seconds" << std::endl;
   std::map<physics::ModelPtr, double>::iterator iter;
@@ -458,10 +462,10 @@ void PhysicsFrictionTest::BoxDirectionRing(const std::string &_physicsEngine)
   {
     double cosAngle = cos(iter->second);
     double sinAngle = sin(iter->second);
-    double velMag = g.y * sinAngle * t;
-    math::Vector3 vel = iter->first->GetWorldLinearVel();
-    EXPECT_NEAR(velMag*cosAngle, vel.x, 5*g_friction_tolerance);
-    EXPECT_NEAR(velMag*sinAngle, vel.y, 5*g_friction_tolerance);
+    double velMag = g.Y() * sinAngle * t;
+    ignition::math::Vector3d vel = iter->first->WorldLinearVel();
+    EXPECT_NEAR(velMag*cosAngle, vel.X(), 5*g_friction_tolerance);
+    EXPECT_NEAR(velMag*sinAngle, vel.Y(), 5*g_friction_tolerance);
   }
 }
 
@@ -498,14 +502,14 @@ void PhysicsFrictionTest::DirectionNaN(const std::string &_physicsEngine)
   ASSERT_TRUE(world != NULL);
 
   // Verify physics engine type
-  physics::PhysicsEnginePtr physics = world->GetPhysicsEngine();
+  physics::PhysicsEnginePtr physics = world->Physics();
   ASSERT_TRUE(physics != NULL);
   EXPECT_EQ(physics->GetType(), _physicsEngine);
 
   // set the gravity vector
   // small positive y component
-  math::Vector3 g(0.0, 1.5, -1.0);
-  physics->SetGravity(g);
+  ignition::math::Vector3d g(0.0, 1.5, -1.0);
+  world->SetGravity(g);
 
   // Spawn a single box
   double dx = 0.5;
@@ -523,13 +527,13 @@ void PhysicsFrictionTest::DirectionNaN(const std::string &_physicsEngine)
 
   // Step forward
   world->Step(1500);
-  double t = world->GetSimTime().Double();
+  double t = world->SimTime().Double();
 
   gzdbg << "Checking velocity after " << t << " seconds" << std::endl;
-  double velMag = (g.y+g.z) * t;
-  math::Vector3 vel = model->GetWorldLinearVel();
-  EXPECT_NEAR(0.0, vel.x, g_friction_tolerance);
-  EXPECT_NEAR(velMag, vel.y, g_friction_tolerance);
+  double velMag = (g.Y()+g.Z()) * t;
+  ignition::math::Vector3d vel = model->WorldLinearVel();
+  EXPECT_NEAR(0.0, vel.X(), g_friction_tolerance);
+  EXPECT_NEAR(velMag, vel.Y(), g_friction_tolerance);
 }
 
 /////////////////////////////////////////////////

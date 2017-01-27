@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,16 +28,19 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+#include <ignition/math/Pose3.hh>
+#include <ignition/msgs/plugin_v.pb.h>
 #include <sstream>
 
-#include "gazebo/util/OpenAL.hh"
 #include "gazebo/common/KeyFrame.hh"
 #include "gazebo/common/Animation.hh"
 #include "gazebo/common/Plugin.hh"
 #include "gazebo/common/Events.hh"
 #include "gazebo/common/Exception.hh"
 #include "gazebo/common/Console.hh"
+#include "gazebo/common/CommonIface.hh"
 #include "gazebo/common/CommonTypes.hh"
+#include "gazebo/common/URI.hh"
 
 #include "gazebo/physics/Gripper.hh"
 #include "gazebo/physics/Joint.hh"
@@ -49,6 +52,10 @@
 #include "gazebo/physics/Contact.hh"
 
 #include "gazebo/transport/Node.hh"
+
+#include "gazebo/util/IgnMsgSdf.hh"
+#include "gazebo/util/IntrospectionManager.hh"
+#include "gazebo/util/OpenAL.hh"
 
 using namespace gazebo;
 using namespace physics;
@@ -85,6 +92,11 @@ void Model::Load(sdf::ElementPtr _sdf)
     this->SetSelfCollide(this->sdf->Get<bool>("self_collide"));
   }
 
+  if (this->sdf->HasElement("enable_wind"))
+  {
+    this->SetWindMode(this->sdf->Get<bool>("enable_wind"));
+  }
+
   if (this->sdf->HasElement("allow_auto_disable"))
     this->SetAutoDisable(this->sdf->Get<bool>("allow_auto_disable"));
 
@@ -112,7 +124,7 @@ void Model::LoadLinks()
     while (linkElem)
     {
       // Create a new link
-      LinkPtr link = this->GetWorld()->GetPhysicsEngine()->CreateLink(
+      LinkPtr link = this->GetWorld()->Physics()->CreateLink(
           boost::static_pointer_cast<Model>(shared_from_this()));
 
       /// \TODO: canonical link is hardcoded to the first link.
@@ -178,7 +190,7 @@ void Model::LoadModels()
     while (modelElem)
     {
       // Create a new model
-      ModelPtr model = this->GetWorld()->GetPhysicsEngine()->CreateModel(
+      ModelPtr model = this->GetWorld()->Physics()->CreateModel(
           boost::static_pointer_cast<Model>(shared_from_this()));
       model->SetWorld(this->GetWorld());
       model->Load(modelElem);
@@ -235,7 +247,8 @@ void Model::LoadJoints()
 void Model::Init()
 {
   // Record the model's initial pose (for reseting)
-  math::Pose initPose = this->sdf->Get<math::Pose>("pose");
+  ignition::math::Pose3d initPose =
+    this->sdf->Get<ignition::math::Pose3d>("pose");
   this->SetInitialRelativePose(initPose);
   this->SetRelativePose(initPose);
 
@@ -310,7 +323,7 @@ void Model::Update()
       iter->second->GetInterpolatedKeyFrame(kf);
 
       iter->second->AddTime(
-          (this->world->GetSimTime() - this->prevAnimationTime).Double());
+          (this->world->SimTime() - this->prevAnimationTime).Double());
 
       if (iter->second->GetTime() < iter->second->GetLength())
       {
@@ -332,7 +345,7 @@ void Model::Update()
       if (this->onJointAnimationComplete)
         this->onJointAnimationComplete();
     }
-    this->prevAnimationTime = this->world->GetSimTime();
+    this->prevAnimationTime = this->world->SimTime();
   }
 
   for (auto &model : this->models)
@@ -408,12 +421,40 @@ boost::shared_ptr<Model> Model::shared_from_this()
 //////////////////////////////////////////////////
 void Model::Fini()
 {
+  // Destroy all attached models
+  for (auto &model : this->attachedModels)
+  {
+    if (model)
+      model->Fini();
+  }
   this->attachedModels.clear();
-  this->canonicalLink.reset();
-  this->jointController.reset();
-  this->joints.clear();
-  this->links.clear();
+
+  // Destroy all models
+  for (auto &model : this->models)
+  {
+    if (model)
+      model->Fini();
+  }
   this->models.clear();
+
+  // Destroy all joints
+  for (auto &joint : this->joints)
+  {
+    if (joint)
+      joint->Fini();
+  }
+  this->joints.clear();
+  this->jointController.reset();
+
+  // Destroy all links
+  for (auto &link : this->links)
+  {
+    if (link)
+      link->Fini();
+  }
+  this->canonicalLink.reset();
+  this->links.clear();
+
   this->plugins.clear();
 
   Entity::Fini();
@@ -429,25 +470,58 @@ void Model::UpdateParameters(sdf::ElementPtr _sdf)
     sdf::ElementPtr linkElem = _sdf->GetElement("link");
     while (linkElem)
     {
+      auto linkName = linkElem->Get<std::string>("name");
       LinkPtr link = boost::dynamic_pointer_cast<Link>(
-          this->GetChild(linkElem->Get<std::string>("name")));
-      link->UpdateParameters(linkElem);
+          this->GetChild(linkName));
+      if (link)
+        link->UpdateParameters(linkElem);
+      else
+      {
+        gzwarn << "Model [" << this->GetName() <<
+            "] doesn't have a link called [" << linkName << "]" << std::endl;
+      }
       linkElem = linkElem->GetNextElement("link");
     }
   }
-  /*
 
   if (_sdf->HasElement("joint"))
   {
     sdf::ElementPtr jointElem = _sdf->GetElement("joint");
     while (jointElem)
     {
-      JointPtr joint = boost::dynamic_pointer_cast<Joint>(this->GetChild(jointElem->Get<std::string>("name")));
-      joint->UpdateParameters(jointElem);
+      auto jointName = jointElem->Get<std::string>("name");
+      JointPtr joint = boost::dynamic_pointer_cast<Joint>(
+          this->GetChild(jointName));
+      if (joint)
+        joint->UpdateParameters(jointElem);
+      else
+      {
+        gzwarn << "Model [" << this->GetName() <<
+            "] doesn't have a joint called [" << jointName << "]" << std::endl;
+      }
       jointElem = jointElem->GetNextElement("joint");
     }
   }
-  */
+
+  if (_sdf->HasElement("model"))
+  {
+    sdf::ElementPtr modelElem = _sdf->GetElement("model");
+    while (modelElem)
+    {
+      auto modelName = modelElem->Get<std::string>("name");
+      ModelPtr model = boost::dynamic_pointer_cast<Model>(
+          this->GetChild(modelName));
+      if (model)
+        model->UpdateParameters(modelElem);
+      else
+      {
+        gzwarn << "Model [" << this->GetName() <<
+            "] doesn't have a nested model called [" << modelName << "]"
+            << std::endl;
+      }
+      modelElem = modelElem->GetNextElement("model");
+    }
+  }
 }
 
 //////////////////////////////////////////////////
@@ -606,6 +680,19 @@ void Model::ResetPhysicsStates()
 //////////////////////////////////////////////////
 void Model::SetLinearVel(const math::Vector3 &_vel)
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetLinearVel(_vel.Ign());
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+void Model::SetLinearVel(const ignition::math::Vector3d &_vel)
+{
   for (Link_V::iterator iter = this->links.begin();
        iter != this->links.end(); ++iter)
   {
@@ -619,6 +706,19 @@ void Model::SetLinearVel(const math::Vector3 &_vel)
 
 //////////////////////////////////////////////////
 void Model::SetAngularVel(const math::Vector3 &_vel)
+{
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetAngularVel(_vel.Ign());
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+void Model::SetAngularVel(const ignition::math::Vector3d &_vel)
 {
   for (Link_V::iterator iter = this->links.begin();
        iter != this->links.end(); ++iter)
@@ -634,6 +734,19 @@ void Model::SetAngularVel(const math::Vector3 &_vel)
 //////////////////////////////////////////////////
 void Model::SetLinearAccel(const math::Vector3 &_accel)
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetLinearAccel(_accel.Ign());
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+void Model::SetLinearAccel(const ignition::math::Vector3d &_accel)
+{
   for (Link_V::iterator iter = this->links.begin();
        iter != this->links.end(); ++iter)
   {
@@ -647,6 +760,19 @@ void Model::SetLinearAccel(const math::Vector3 &_accel)
 
 //////////////////////////////////////////////////
 void Model::SetAngularAccel(const math::Vector3 &_accel)
+{
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetAngularAccel(_accel.Ign());
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+void Model::SetAngularAccel(const ignition::math::Vector3d &_accel)
 {
   for (Link_V::iterator iter = this->links.begin();
        iter != this->links.end(); ++iter)
@@ -662,91 +788,209 @@ void Model::SetAngularAccel(const math::Vector3 &_accel)
 //////////////////////////////////////////////////
 math::Vector3 Model::GetRelativeLinearVel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->RelativeLinearVel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::RelativeLinearVel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetRelativeLinearVel();
+    return this->GetLink("canonical")->RelativeLinearVel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetWorldLinearVel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->WorldLinearVel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::WorldLinearVel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetWorldLinearVel();
+  {
+    return this->GetLink("canonical")->WorldLinearVel();
+  }
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetRelativeAngularVel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->RelativeAngularVel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::RelativeAngularVel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetRelativeAngularVel();
+    return this->GetLink("canonical")->RelativeAngularVel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetWorldAngularVel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->WorldAngularVel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::WorldAngularVel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetWorldAngularVel();
+    return this->GetLink("canonical")->WorldAngularVel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetRelativeLinearAccel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->RelativeLinearAccel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::RelativeLinearAccel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetRelativeLinearAccel();
+    return this->GetLink("canonical")->RelativeLinearAccel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetWorldLinearAccel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->WorldLinearAccel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::WorldLinearAccel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetWorldLinearAccel();
+    return this->GetLink("canonical")->WorldLinearAccel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetRelativeAngularAccel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->RelativeAngularAccel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::RelativeAngularAccel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetRelativeAngularAccel();
+    return this->GetLink("canonical")->RelativeAngularAccel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Vector3 Model::GetWorldAngularAccel() const
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->WorldAngularAccel();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d Model::WorldAngularAccel() const
+{
   if (this->GetLink("canonical"))
-    return this->GetLink("canonical")->GetWorldAngularAccel();
+    return this->GetLink("canonical")->WorldAngularAccel();
   else
-    return math::Vector3(0, 0, 0);
+    return ignition::math::Vector3d::Zero;
 }
 
 //////////////////////////////////////////////////
 math::Box Model::GetBoundingBox() const
 {
-  math::Box box;
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  return this->BoundingBox();
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
 
-  box.min.Set(FLT_MAX, FLT_MAX, FLT_MAX);
-  box.max.Set(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+//////////////////////////////////////////////////
+ignition::math::Box Model::BoundingBox() const
+{
+  ignition::math::Box box;
 
-  for (Link_V::const_iterator iter = this->links.begin();
-       iter != this->links.end(); ++iter)
+  box.Min().Set(FLT_MAX, FLT_MAX, FLT_MAX);
+  box.Max().Set(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+  for (const auto &iter : this->links)
   {
-    if (*iter)
+    if (iter)
     {
-      math::Box linkBox;
-      linkBox = (*iter)->GetBoundingBox();
+      ignition::math::Box linkBox;
+      linkBox = iter->BoundingBox();
       box += linkBox;
     }
   }
@@ -851,7 +1095,7 @@ void Model::LoadJoint(sdf::ElementPtr _sdf)
 
   std::string stype = _sdf->Get<std::string>("type");
 
-  joint = this->GetWorld()->GetPhysicsEngine()->CreateJoint(stype,
+  joint = this->GetWorld()->Physics()->CreateJoint(stype,
      boost::static_pointer_cast<Model>(shared_from_this()));
   if (!joint)
   {
@@ -922,7 +1166,7 @@ void Model::LoadPlugins()
     {
       gzerr << "Sensors failed to initialize when loading model["
         << this->GetName() << "] via the factory mechanism."
-        << "Plugins for the model will not be loaded.\n";
+        << " Plugins for the model will not be loaded.\n";
     }
   }
 
@@ -1085,11 +1329,12 @@ void Model::SetLaserRetro(const float _retro)
 //////////////////////////////////////////////////
 void Model::FillMsg(msgs::Model &_msg)
 {
-  ignition::math::Pose3d relPose = this->GetRelativePose().Ign();
+  ignition::math::Pose3d relPose = this->RelativePose();
 
   _msg.set_name(this->GetScopedName());
   _msg.set_is_static(this->IsStatic());
   _msg.set_self_collide(this->GetSelfCollide());
+  _msg.set_enable_wind(this->WindMode());
   msgs::Set(_msg.mutable_pose(), relPose);
   _msg.set_id(this->GetId());
   msgs::Set(_msg.mutable_scale(), this->scale);
@@ -1109,6 +1354,18 @@ void Model::FillMsg(msgs::Model &_msg)
   for (const auto &model : this->models)
   {
     model->FillMsg(*_msg.add_model());
+  }
+
+  if (this->sdf->HasElement("plugin"))
+  {
+    sdf::ElementPtr pluginElem = this->sdf->GetElement("plugin");
+    while (pluginElem)
+    {
+      auto pluginMsg = _msg.add_plugin();
+      pluginMsg->CopyFrom(msgs::PluginFromSDF(pluginElem));
+
+      pluginElem = pluginElem->GetNextElement("plugin");
+    }
   }
 }
 
@@ -1143,6 +1400,9 @@ void Model::ProcessMsg(const msgs::Model &_msg)
 
   if (_msg.has_scale())
     this->SetScale(msgs::ConvertIgn(_msg.scale()));
+
+  if (_msg.has_enable_wind())
+    this->SetWindMode(_msg.enable_wind());
 }
 
 //////////////////////////////////////////////////
@@ -1157,7 +1417,7 @@ void Model::SetJointAnimation(
     this->jointAnimations[iter->first] = iter->second;
   }
   this->onJointAnimationComplete = _onComplete;
-  this->prevAnimationTime = this->world->GetSimTime();
+  this->prevAnimationTime = this->world->SimTime();
 }
 
 //////////////////////////////////////////////////
@@ -1171,6 +1431,19 @@ void Model::StopAnimation()
 
 //////////////////////////////////////////////////
 void Model::AttachStaticModel(ModelPtr &_model, math::Pose _offset)
+{
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->AttachStaticModel(_model, _offset.Ign());
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+//////////////////////////////////////////////////
+void Model::AttachStaticModel(ModelPtr &_model, ignition::math::Pose3d _offset)
 {
   if (!_model->IsStatic())
   {
@@ -1199,10 +1472,10 @@ void Model::DetachStaticModel(const std::string &_modelName)
 //////////////////////////////////////////////////
 void Model::OnPoseChange()
 {
-  math::Pose p;
+  ignition::math::Pose3d p;
   for (unsigned int i = 0; i < this->attachedModels.size(); i++)
   {
-    p = this->GetWorldPose();
+    p = this->WorldPose();
     p += this->attachedModelsOffset[i];
     this->attachedModels[i]->SetWorldPose(p, true);
   }
@@ -1211,7 +1484,7 @@ void Model::OnPoseChange()
 //////////////////////////////////////////////////
 void Model::SetState(const ModelState &_state)
 {
-  this->SetWorldPose(_state.GetPose(), true);
+  this->SetWorldPose(_state.Pose(), true);
   this->SetScale(_state.Scale(), true);
 
   LinkState_M linkStates = _state.GetLinkStates();
@@ -1242,12 +1515,6 @@ void Model::SetState(const ModelState &_state)
   //   this->SetJointPosition(this->GetName() + "::" + jointState.GetName(),
   //                          jointState.GetAngle(0).Radian());
   // }
-}
-
-/////////////////////////////////////////////////
-void Model::SetScale(const math::Vector3 &_scale)
-{
-  this->SetScale(_scale.Ign());
 }
 
 /////////////////////////////////////////////////
@@ -1301,6 +1568,20 @@ void Model::SetEnabled(bool _enabled)
 /////////////////////////////////////////////////
 void Model::SetLinkWorldPose(const math::Pose &_pose, std::string _linkName)
 {
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetLinkWorldPose(_pose.Ign(), _linkName);
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+/////////////////////////////////////////////////
+void Model::SetLinkWorldPose(const ignition::math::Pose3d &_pose,
+    std::string _linkName)
+{
   // look for link matching link name
   LinkPtr link = this->GetLink(_linkName);
   if (link)
@@ -1313,10 +1594,24 @@ void Model::SetLinkWorldPose(const math::Pose &_pose, std::string _linkName)
 /////////////////////////////////////////////////
 void Model::SetLinkWorldPose(const math::Pose &_pose, const LinkPtr &_link)
 {
-  math::Pose linkPose = _link->GetWorldPose();
-  math::Pose currentModelPose = this->GetWorldPose();
-  math::Pose linkRelPose = currentModelPose - linkPose;
-  math::Pose targetModelPose =  linkRelPose * _pose;
+#ifndef _WIN32
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+  this->SetLinkWorldPose(_pose.Ign(), _link);
+#ifndef _WIN32
+  #pragma GCC diagnostic pop
+#endif
+}
+
+/////////////////////////////////////////////////
+void Model::SetLinkWorldPose(const ignition::math::Pose3d &_pose,
+    const LinkPtr &_link)
+{
+  ignition::math::Pose3d linkPose = _link->WorldPose();
+  ignition::math::Pose3d currentModelPose = this->WorldPose();
+  ignition::math::Pose3d linkRelPose = currentModelPose - linkPose;
+  ignition::math::Pose3d targetModelPose =  linkRelPose * _pose;
   this->SetWorldPose(targetModelPose);
 }
 
@@ -1400,7 +1695,7 @@ double Model::GetWorldEnergyPotential() const
   for (Joint_V::const_iterator iter = this->joints.begin();
     iter != this->joints.end(); ++iter)
   {
-    for (unsigned int j = 0; j < (*iter)->GetAngleCount(); ++j)
+    for (unsigned int j = 0; j < (*iter)->DOF(); ++j)
     {
       e += (*iter)->GetWorldEnergyPotentialSpring(j);
     }
@@ -1439,14 +1734,45 @@ gazebo::physics::JointPtr Model::CreateJoint(
            << "], skipping creating joint.\n";
     return joint;
   }
-  joint =
-    this->world->GetPhysicsEngine()->CreateJoint(_type, shared_from_this());
+  joint = this->world->Physics()->CreateJoint(_type, shared_from_this());
   joint->SetName(_name);
   joint->Attach(_parent, _child);
   // need to call Joint::Load to clone Joint::sdfJoint into Joint::sdf
-  joint->Load(_parent, _child, gazebo::math::Pose());
+  joint->Load(_parent, _child, ignition::math::Pose3d::Zero);
   this->joints.push_back(joint);
   return joint;
+}
+
+/////////////////////////////////////////////////
+gazebo::physics::JointPtr Model::CreateJoint(sdf::ElementPtr _sdf)
+{
+  if (_sdf->GetName() != "joint" ||
+      !_sdf->HasAttribute("name") ||
+      !_sdf->HasAttribute("type"))
+  {
+    gzerr << "Invalid _sdf passed to Model::CreateJoint" << std::endl;
+    return physics::JointPtr();
+  }
+
+  std::string jointName(_sdf->Get<std::string>("name"));
+  if (this->GetJoint(jointName))
+  {
+    gzwarn << "Model [" << this->GetName()
+           << "] already has a joint named [" << jointName
+           << "], skipping creating joint.\n";
+    return physics::JointPtr();
+  }
+
+  try
+  {
+    // LoadJoint can throw if the scoped name of the joint already exists.
+    this->LoadJoint(_sdf);
+  }
+  catch(...)
+  {
+    gzerr << "LoadJoint Failed" << std::endl;
+  }
+  return this->GetJoint(jointName);
 }
 
 /////////////////////////////////////////////////
@@ -1457,7 +1783,12 @@ bool Model::RemoveJoint(const std::string &_name)
   if (joint)
   {
     this->world->SetPaused(true);
+    if (this->jointController)
+    {
+      this->jointController->RemoveJoint(joint.get());
+    }
     joint->Detach();
+    joint->Fini();
 
     this->joints.erase(
       std::remove(this->joints.begin(), this->joints.end(), joint),
@@ -1475,6 +1806,83 @@ bool Model::RemoveJoint(const std::string &_name)
 }
 
 /////////////////////////////////////////////////
+void Model::SetWindMode(const bool _enable)
+{
+  this->sdf->GetElement("enable_wind")->Set(_enable);
+  for (auto &link : this->links)
+    link->SetWindMode(_enable);
+}
+
+/////////////////////////////////////////////////
+bool Model::WindMode() const
+{
+  return this->sdf->Get<bool>("enable_wind");
+}
+
+/////////////////////////////////////////////////
+void Model::RegisterIntrospectionItems()
+{
+  auto uri = this->URI();
+
+  // Callbacks.
+  auto fModelPose = [this]()
+  {
+    return this->WorldPose();
+  };
+
+  auto fModelLinVel = [this]()
+  {
+    return this->WorldLinearVel();
+  };
+
+  auto fModelAngVel = [this]()
+  {
+    return this->WorldAngularVel();
+  };
+
+  auto fModelLinAcc = [this]()
+  {
+    return this->WorldLinearAccel();
+  };
+
+  auto fModelAngAcc = [this]()
+  {
+    return this->WorldAngularAccel();
+  };
+
+  // Register items.
+  common::URI poseURI(uri);
+  poseURI.Query().Insert("p", "pose3d/world_pose");
+  this->introspectionItems.push_back(poseURI);
+  gazebo::util::IntrospectionManager::Instance()->Register
+      <ignition::math::Pose3d>(poseURI.Str(), fModelPose);
+
+  common::URI linVelURI(uri);
+  linVelURI.Query().Insert("p", "vector3d/world_linear_velocity");
+  this->introspectionItems.push_back(linVelURI);
+  gazebo::util::IntrospectionManager::Instance()->Register
+      <ignition::math::Vector3d>(linVelURI.Str(), fModelLinVel);
+
+  common::URI angVelURI(uri);
+  angVelURI.Query().Insert("p", "vector3d/world_angular_velocity");
+  this->introspectionItems.push_back(angVelURI);
+  gazebo::util::IntrospectionManager::Instance()->Register
+      <ignition::math::Vector3d>(angVelURI.Str(), fModelAngVel);
+
+  common::URI linAccURI(uri);
+  linAccURI.Query().Insert("p", "vector3d/world_linear_acceleration");
+  this->introspectionItems.push_back(linAccURI);
+  gazebo::util::IntrospectionManager::Instance()->Register
+      <ignition::math::Vector3d>(linAccURI.Str(), fModelLinAcc);
+
+  common::URI angAccURI(uri);
+  angAccURI.Query().Insert("p", "vector3d/world_angular_acceleration");
+  this->introspectionItems.push_back(angAccURI);
+  gazebo::util::IntrospectionManager::Instance()->Register
+      <ignition::math::Vector3d>(angAccURI.Str(), fModelAngAcc);
+}
+
+/////////////////////////////////////////////////
 LinkPtr Model::CreateLink(const std::string &_name)
 {
   LinkPtr link;
@@ -1486,10 +1894,103 @@ LinkPtr Model::CreateLink(const std::string &_name)
     return link;
   }
 
-  link = this->world->GetPhysicsEngine()->CreateLink(shared_from_this());
+  link = this->world->Physics()->CreateLink(shared_from_this());
 
   link->SetName(_name);
   this->links.push_back(link);
 
   return link;
+}
+
+//////////////////////////////////////////////////
+void Model::PluginInfo(const common::URI &_pluginUri,
+    ignition::msgs::Plugin_V &_plugins, bool &_success)
+{
+  _plugins.clear_plugins();
+  _success = false;
+
+  if (!_pluginUri.Valid())
+  {
+    gzwarn << "URI [" << _pluginUri.Str() << "] is not valid." << std::endl;
+    return;
+  }
+
+  if (!_pluginUri.Path().Contains(this->URI().Path()))
+  {
+    gzwarn << "Plugin [" << _pluginUri.Str() << "] does not match world [" <<
+        this->URI().Str() << "]" << std::endl;
+    return;
+  }
+
+  auto parts = common::split(_pluginUri.Path().Str(), "/");
+  auto myParts = common::split(this->URI().Path().Str(), "/");
+
+  // Iterate over parts following this model
+  for (size_t i = myParts.size(); i < parts.size(); i = i+2)
+  {
+    if (parts[i] == "model")
+    {
+      // Look in nested models
+      auto model = this->NestedModel(parts[i+1]);
+
+      if (!model)
+      {
+        gzwarn << "Model [" << parts[i+1] << "] not found in model [" <<
+            this->GetName() << "]" << std::endl;
+        return;
+      }
+
+      model->PluginInfo(_pluginUri, _plugins, _success);
+      return;
+    }
+    // Look for plugin
+    else if (parts[i] == "plugin")
+    {
+      // Return empty vector
+      if (!this->sdf->HasElement("plugin"))
+      {
+        _success = true;
+        return;
+      }
+
+      // Find correct plugin
+      auto pluginElem = this->sdf->GetElement("plugin");
+      while (pluginElem)
+      {
+        auto pluginName = pluginElem->Get<std::string>("name");
+
+        // If asking for a specific plugin, skip all other plugins
+        if (i+1 < parts.size() && parts[i+1] != pluginName)
+        {
+          pluginElem = pluginElem->GetNextElement("plugin");
+          continue;
+        }
+
+        // Get plugin info from SDF
+        auto pluginMsg = _plugins.add_plugins();
+        pluginMsg->CopyFrom(util::Convert<ignition::msgs::Plugin>(pluginElem));
+
+        pluginElem = pluginElem->GetNextElement("plugin");
+      }
+
+      // If asking for a specific plugin and it wasn't found
+      if (i+1 < parts.size() && _plugins.plugins_size() == 0)
+      {
+        gzwarn << "Plugin [" << parts[i+1] << "] not found in model [" <<
+            this->URI().Str() << "]" << std::endl;
+        return;
+      }
+      _success = true;
+      return;
+    }
+    else
+    {
+      gzwarn << "Segment [" << parts[i] << "] in [" << _pluginUri.Str() <<
+         "] cannot be handled." << std::endl;
+      return;
+    }
+  }
+
+  gzwarn << "Couldn't get information for plugin [" << _pluginUri.Str() << "]"
+      << std::endl;
 }

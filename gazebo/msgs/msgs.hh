@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,25 @@
  * limitations under the License.
  *
 */
-#ifndef _GAZEBO_MESSAGES_UTILITY_HH_
-#define _GAZEBO_MESSAGES_UTILITY_HH_
+#ifndef GAZEBO_MSGS_MSGS_HH_
+#define GAZEBO_MSGS_MSGS_HH_
 
 #include <string>
 
 #include <sdf/sdf.hh>
 
-#include <ignition/math/Vector3.hh>
-#include <ignition/math/Pose3.hh>
+#include <ignition/math/Inertial.hh>
+#include <ignition/math/MassMatrix3.hh>
 #include <ignition/math/Plane.hh>
+#include <ignition/math/Pose3.hh>
+#include <ignition/math/Quaternion.hh>
+#include <ignition/math/Vector2.hh>
+#include <ignition/math/Vector3.hh>
 
-#include "gazebo/math/Quaternion.hh"
+#include <ignition/msgs/color.pb.h>
+#include <ignition/msgs/material.pb.h>
 
 #include "gazebo/msgs/MessageTypes.hh"
-
-#include "gazebo/math/MathTypes.hh"
-#include "gazebo/math/Vector3.hh"
-#include "gazebo/math/Pose.hh"
-#include "gazebo/math/Plane.hh"
 
 #include "gazebo/common/SphericalCoordinates.hh"
 #include "gazebo/common/Color.hh"
@@ -79,6 +79,66 @@ namespace gazebo
         const google::protobuf::Message &message);
     /// \endcond
 
+    /// \brief Convert a double to a msgs::Any
+    /// \param[in] _v The double to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const double _v);
+
+    /// \brief Convert an int to a msgs::Any
+    /// \param[in] _i The int to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const int _i);
+
+    /// \brief Convert a std::string to a msgs::Any
+    /// \param[in] _s The string to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const std::string &_s);
+
+    /// \brief Convert a string literal to a msgs::Any
+    /// \param[in] _s The string to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const char *_s);
+
+    /// \brief Convert a bool to a msgs::Any
+    /// \param[in] _b The bool to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const bool _b);
+
+    /// \brief Convert an ignition::math::Vector3d to a msgs::Any
+    /// \param[in] _v The vector to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const ignition::math::Vector3d &_v);
+
+    /// \brief Convert a common::Color to a msgs::Any
+    /// \param[in] _c The color to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const common::Color &_c);
+
+    /// \brief Convert an ignition::math::Pose3d to a msgs::Any
+    /// \param[in] _p The pose to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const ignition::math::Pose3d &_p);
+
+    /// \brief Convert an ignition::math::Quaterniond to a msgs::Any
+    /// \param[in] _q The quaternion to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const ignition::math::Quaterniond &_q);
+
+    /// \brief Convert a common::Time to a msgs::Any
+    /// \param[in] _t The time to convert.
+    /// \return A msgs::Any object.
+    GAZEBO_VISIBLE
+    msgs::Any ConvertAny(const common::Time &_t);
+
     /// \brief Convert a ignition::math::Vector3 to a msgs::Vector3d
     /// \param[in] _v The vector to convert
     /// \return A msgs::Vector3d object
@@ -91,7 +151,7 @@ namespace gazebo
     GAZEBO_VISIBLE
     msgs::Vector2d Convert(const ignition::math::Vector2d &_v);
 
-    /// \brief Convert a ignition::math::Quaternion to a msgs::Quaternion
+    /// \brief Convert a ignition::math::Quaterniond to a msgs::Quaternion
     /// \param[in] _q The quaternion to convert
     /// \return A msgs::Quaternion object
     GAZEBO_VISIBLE
@@ -114,6 +174,18 @@ namespace gazebo
     /// \return A msgs::Time object
     GAZEBO_VISIBLE
     msgs::Time Convert(const common::Time &_t);
+
+    /// \brief Convert an ignition::math::Inertiald to a msgs::Inertial
+    /// \param[in] _i The Inertiald to convert
+    /// \return A msgs::Inertial object
+    GAZEBO_VISIBLE
+    msgs::Inertial Convert(const ignition::math::Inertiald &_i);
+
+    /// \brief Convert an ignition::math::MassMatrix3d to a msgs::Inertial
+    /// \param[in] _m The MassMatrix3d to convert
+    /// \return A msgs::Inertial object
+    GAZEBO_VISIBLE
+    msgs::Inertial Convert(const ignition::math::MassMatrix3d &_m);
 
     /// \brief Convert a ignition::math::Planed to a msgs::PlaneGeom
     /// \param[in] _p The plane to convert
@@ -161,15 +233,21 @@ namespace gazebo
 
     /// \brief Convert a msgs::Quaternion to an ignition::math::Quaternion
     /// \param[in] _q The quaternion to convert
-    /// \return An ignition::math::Quaternion object
+    /// \return An ignition::math::Quaterniond object
     GAZEBO_VISIBLE
     ignition::math::Quaterniond ConvertIgn(const msgs::Quaternion &_q);
 
     /// \brief Convert a msgs::Pose to an ignition::math::Pose
-    /// \param[in] _q The pose to convert
+    /// \param[in] _p The pose to convert
     /// \return An ignition::math::Pose object
     GAZEBO_VISIBLE
     ignition::math::Pose3d ConvertIgn(const msgs::Pose &_p);
+
+    /// \brief Convert a msgs::Inertial to an ignition::math::Inertiald
+    /// \param[in] _i The inertial to convert
+    /// \return An ignition::math::Inertiald object
+    GAZEBO_VISIBLE
+    ignition::math::Inertiald Convert(const msgs::Inertial &_i);
 
     /// \brief Convert a msgs::Image to a common::Image
     /// \param[out] _img The common::Image container
@@ -244,6 +322,18 @@ namespace gazebo
     GAZEBO_VISIBLE
     void Set(msgs::SphericalCoordinates *_s,
              const common::SphericalCoordinates &_v);
+
+    /// \brief Set a msgs::Inertial from an ignition::math::Inertiald
+    /// \param[out] _i A msgs::Inertial pointer
+    /// \param[in] _m An ignition::math::Inertiald reference
+    GAZEBO_VISIBLE
+    void Set(msgs::Inertial *_i, const ignition::math::Inertiald &_m);
+
+    /// \brief Set a msgs::Inertial from an ignition::math::MassMatrix3d
+    /// \param[out] _i A msgs::Inertial pointer
+    /// \param[in] _m An ignition::math::MassMatrix3d reference
+    GAZEBO_VISIBLE
+    void Set(msgs::Inertial *_i, const ignition::math::MassMatrix3d &_m);
 
     /// \brief Set a msgs::Plane from an ignition::math::Planed
     /// \param[out] _p A msgs::Plane pointer
@@ -375,6 +465,9 @@ namespace gazebo
     /// \sa CameraSensorFromSDF
     /// \sa RaySensorFromSDF
     /// \sa ContactSensorFromSDF
+    /// \sa LogicalCameraSensorFromSDF
+    /// \sa GPSSensorFromSDF
+    /// \sa ImuSensorFromSDF
     GAZEBO_VISIBLE
     msgs::Sensor SensorFromSDF(sdf::ElementPtr _sdf);
 
@@ -560,6 +653,127 @@ namespace gazebo
     GAZEBO_VISIBLE
     msgs::Header *GetHeader(google::protobuf::Message &_message);
 
+    /// \brief Create a msgs::GPSSensor from a gps sensor SDF element
+    /// \param[in] _sdf The GPS sensor sdf element
+    /// \return The new msgs::GPSSensor object
+    /// \sa SensorFromSDF
+    GAZEBO_VISIBLE
+    msgs::GPSSensor GPSSensorFromSDF(sdf::ElementPtr _sdf);
+
+    /// \brief Create a msgs::SensorNoise from a sensor noise SDF element
+    /// \param[in] _sdf The sensor noise sdf element
+    /// \return The new msgs::SensorNoise object
+    /// \sa SensorFromSDF
+    GAZEBO_VISIBLE
+    msgs::SensorNoise SensorNoiseFromSDF(sdf::ElementPtr _elem);
+
+    /// \brief Create a msgs::IMUSensor from an imu sensor SDF element
+    /// \param[in] _sdf The IMU sensor sdf element
+    /// \return The new msgs::IMUSensor object
+    /// \sa SensorFromSDF
+    GAZEBO_VISIBLE
+    msgs::IMUSensor IMUSensorFromSDF(sdf::ElementPtr _sdf);
+
+    /// \brief Create a msgs::LogicalCameraSensor from a logical camera sensor
+    //// SDF element
+    /// \param[in] _sdf The logical camera sensor sdf element
+    /// \return The new msgs::LogicalCameraSensor object
+    /// \sa SensorFromSDF
+    GAZEBO_VISIBLE
+    msgs::LogicalCameraSensor LogicalCameraSensorFromSDF(sdf::ElementPtr _sdf);
+
+    /// \brief Create or update an SDF element from a msgs::LogicalCameraSensor
+    /// \param[in] _msg LogicalCameraSensor messsage
+    /// \param[in] _sdf If supplied, performs an update from _msg instead of
+    /// creating a new sdf element.
+    /// \return The new SDF element.
+    GAZEBO_VISIBLE
+    sdf::ElementPtr LogicalCameraSensorToSDF(
+        const msgs::LogicalCameraSensor &_msg,
+        sdf::ElementPtr _sdf = sdf::ElementPtr());
+
+    /// \brief Create or update an SDF element from a msgs::IMUSensor
+    /// \param[in] _msg IMUSensor messsage
+    /// \param[in] _sdf If supplied, performs an update from _msg instead of
+    /// creating a new sdf element.
+    /// \return The new SDF element.
+    GAZEBO_VISIBLE
+    sdf::ElementPtr IMUSensorToSDF(const msgs::IMUSensor &_msg,
+        sdf::ElementPtr _sdf = sdf::ElementPtr());
+
+    /// \brief Create or update an SDF element from a msgs::SensorNoise
+    /// \param[in] _msg SensorNoise messsage
+    /// \param[in] _sdf If supplied, performs an update from _msg instead of
+    /// creating a new sdf element.
+    /// \return The new SDF element.
+    GAZEBO_VISIBLE
+    sdf::ElementPtr SensorNoiseToSDF(const msgs::SensorNoise &_msg,
+        sdf::ElementPtr _sdf = sdf::ElementPtr());
+
+    /// \brief Create or update an SDF element from a msgs::GPSSensor
+    /// \param[in] _msg GPSSensor messsage
+    /// \param[in] _sdf If supplied, performs an update from _msg instead of
+    /// creating a new sdf element.
+    /// \return The new SDF element.
+    GAZEBO_VISIBLE
+    sdf::ElementPtr GPSSensorToSDF(const msgs::GPSSensor &_msg,
+        sdf::ElementPtr _sdf = sdf::ElementPtr());
+
+    /// \brief Convert gazebo::msgs::Color to ignition::msgs::Color
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    ignition::msgs::Color ConvertIgnMsg(const msgs::Color &_msg);
+
+    /// \brief Convert ignition::msgs::Color to gazebo::msgs::Color
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    msgs::Color ConvertIgnMsg(const ignition::msgs::Color &_msg);
+
+    /// \brief Convert gazebo::msgs::Material::ShaderType to
+    /// ignition::msgs::Material::ShaderType
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    ignition::msgs::Material::ShaderType ConvertIgnMsg(
+        const msgs::Material::ShaderType &_type);
+
+    /// \brief Convert ignition::msgs::Material::ShaderType to
+    /// gazebo::msgs::Material::ShaderType
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    msgs::Material::ShaderType ConvertIgnMsg(
+        const ignition::msgs::Material::ShaderType &_type);
+
+    /// \brief Convert gazebo::msgs::Material::Script to
+    /// ignition::msgs::Material::Script
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    ignition::msgs::Material::Script ConvertIgnMsg(
+        const msgs::Material::Script &_script);
+
+    /// \brief Convert ignition::msgs::Material::Script to
+    /// gazebo::msgs::Material::Script
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    msgs::Material::Script ConvertIgnMsg(
+        const ignition::msgs::Material::Script &_script);
+
+    /// \brief Convert gazebo::msgs::Material to ignition::msgs::Material
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    ignition::msgs::Material ConvertIgnMsg(const msgs::Material &_msg);
+
+    /// \brief Convert ignition::msgs::Material to gazebo::msgs::Material
+    /// \param[in] _msg The message to convert
+    /// \return The resulting message
+    GAZEBO_VISIBLE
+    msgs::Material ConvertIgnMsg(const ignition::msgs::Material &_msg);
     /// \}
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Open Source Robotics Foundation
+ * Copyright (C) 2015 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,14 @@ class CameraSensor_TEST : public ServerFixture
 /////////////////////////////////////////////////
 TEST_F(CameraSensor_TEST, CreateCamera)
 {
-  this->Load("worlds/camera.world");
+  this->Load("worlds/empty.world");
+  this->SpawnCamera("camera", "camera", ignition::math::Vector3d::Zero,
+      ignition::math::Vector3d::Zero);
+
   sensors::SensorManager *mgr = sensors::SensorManager::Instance();
 
   // Create the camera sensor
-  std::string sensorName = "default::camera::link::camera";
+  std::string sensorName = "default::camera::body::camera";
 
   // Get a pointer to the camera sensor
   sensors::CameraSensorPtr sensor =
@@ -40,7 +43,7 @@ TEST_F(CameraSensor_TEST, CreateCamera)
      (mgr->GetSensor(sensorName));
 
   // Make sure the above dynamic cast worked.
-  EXPECT_TRUE(sensor != NULL);
+  EXPECT_TRUE(sensor != nullptr);
 
   EXPECT_TRUE(sensor->IsActive());
 
@@ -56,7 +59,7 @@ TEST_F(CameraSensor_TEST, CreateCamera)
     sleep++;
     common::Time::MSleep(100);
   }
-  EXPECT_TRUE(sensor->ImageData() != NULL);
+  EXPECT_TRUE(sensor->ImageData() != nullptr);
 
   // Remove the sensor
   std::string sensorScopedName = sensor->ScopedName();
@@ -71,7 +74,7 @@ TEST_F(CameraSensor_TEST, CreateCamera)
     common::Time::MSleep(100);
   }
   EXPECT_TRUE(sensors::SensorManager::Instance()->GetSensor(sensorScopedName)
-      == NULL);
+      == nullptr);
 
   // Check that sensor is invalid after being removed.
   EXPECT_EQ(sensor->ImageWidth(), 0u);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ size_t get_models_cb(void *_buffer, size_t _size, size_t _nmemb, void *_userp)
 ModelDatabase::ModelDatabase()
   : dataPtr(new ModelDatabasePrivate)
 {
-  this->dataPtr->updateCacheThread = NULL;
+  this->dataPtr->updateCacheThread = nullptr;
   this->Start();
 }
 
@@ -78,7 +78,7 @@ ModelDatabase::~ModelDatabase()
 {
   this->Fini();
   delete this->dataPtr;
-  this->dataPtr = NULL;
+  this->dataPtr = nullptr;
 }
 
 /////////////////////////////////////////////////
@@ -110,7 +110,7 @@ void ModelDatabase::Fini()
     if (this->dataPtr->updateCacheThread)
       this->dataPtr->updateCacheThread->join();
     delete this->dataPtr->updateCacheThread;
-    this->dataPtr->updateCacheThread = NULL;
+    this->dataPtr->updateCacheThread = nullptr;
   }
 }
 
@@ -249,7 +249,7 @@ bool ModelDatabase::UpdateModelCacheImpl()
 
     TiXmlElement *uriElem;
     for (uriElem = modelsElem->FirstChildElement("uri");
-         uriElem != NULL && !this->dataPtr->stop;
+         uriElem != nullptr && !this->dataPtr->stop;
          uriElem = uriElem->NextSiblingElement("uri"))
     {
       std::string uri = uriElem->GetText();
@@ -510,7 +510,7 @@ std::string ModelDatabase::GetModelPath(const std::string &_uri,
 #ifndef _WIN32
       TAR *tar;
       tar_open(&tar, const_cast<char*>(tarfilename.c_str()),
-          NULL, O_RDONLY, 0644, TAR_GNU);
+          nullptr, O_RDONLY, 0644, TAR_GNU);
 
       std::string outputPath = getenv("HOME");
       outputPath += "/.gazebo/models";
