@@ -25,6 +25,9 @@
 #include "gazebo/physics/BoxShape.hh"
 #include "gazebo/util/system.hh"
 
+#include <siconos/SiconosShape.hpp>
+#include <siconos/SiconosContactor.hpp>
+
 namespace gazebo
 {
   namespace physics
@@ -75,9 +78,9 @@ namespace gazebo
                 bParent = boost::dynamic_pointer_cast<SiconosCollision>(
                     this->collisionParent);
 
-                /// Siconos requires the half-extents of the box
-                SP::SiconosShape shape(bParent->GetCollisionShape());
-                if (!shape)
+                /// Siconos requires the full extents of the box
+                SP::SiconosContactor c(bParent->GetSiconosContactor());
+                if (!c)
                 {
                   this->initialSize = size;
                   SP::SiconosBox box(new SiconosBox(size.X(), size.Y(), size.Z()));
@@ -87,7 +90,7 @@ namespace gazebo
                 }
                 else
                 {
-                  SP::SiconosBox box(boost::static_pointer_cast<SiconosBox>(shape));
+                  SP::SiconosBox box(boost::static_pointer_cast<SiconosBox>(c->shape));
                   box->setDimensions(size.X(), size.Y(), size.Z());
                   box->setInsideMargin(std::min(std::min(size.X(), size.Y()),
                                                 size.Z())*0.1);

@@ -85,12 +85,11 @@ void SiconosLink::Init()
     {
       SiconosCollisionPtr collision;
       collision = boost::static_pointer_cast<SiconosCollision>(*iter);
-      SP::SiconosShape shape(collision->GetCollisionShape());
-      if (shape) {
-        SP::SiconosContactor c(new SiconosContactor(shape));
+      SP::SiconosContactor c(collision->GetSiconosContactor());
+      if (c) {
         this->contactorSet->append(c);
       } else
-          GZ_ASSERT(shape, "Shape is invalid");
+        GZ_ASSERT(c, "Contactor is invalid");
 
       /* Siconos TODO
       SurfaceParamsPtr surface = collision->GetSurface();
@@ -284,14 +283,7 @@ void SiconosLink::OnPoseChange()
 
   const ignition::math::Pose3d myPose = this->WorldCoGPose();
 
-  SiconosVector &q = *this->body->q();
-  q(0) = myPose.Pos().X();
-  q(1) = myPose.Pos().Y();
-  q(2) = myPose.Pos().Z();
-  q(3) = myPose.Rot().W();
-  q(4) = myPose.Rot().X();
-  q(5) = myPose.Rot().Y();
-  q(6) = myPose.Rot().Z();
+  SiconosTypes::ConvertPoseToVector7(myPose, this->body->q());
 }
 
 //////////////////////////////////////////////////

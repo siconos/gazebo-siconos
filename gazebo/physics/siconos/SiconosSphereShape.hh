@@ -25,7 +25,8 @@
 #include "gazebo/physics/SphereShape.hh"
 #include "gazebo/util/system.hh"
 
-#include <SiconosShape.hpp>
+#include <siconos/SiconosShape.hpp>
+#include <siconos/SiconosContactor.hpp>
 
 namespace gazebo
 {
@@ -67,12 +68,24 @@ namespace gazebo
                 bParent = boost::dynamic_pointer_cast<SiconosCollision>(
                     this->collisionParent);
 
-                SP::SiconosSphere siconosSphere(
-                    new SiconosSphere(_radius));
-                siconosSphere->setInsideMargin(_radius/2);
-                siconosSphere->setOutsideMargin(0);
-
-                bParent->SetCollisionShape(siconosSphere, true);
+                SP::SiconosContactor c(bParent->GetSiconosContactor());
+                if (!c)
+                {
+                  this->initialSize.X() = _radius;
+                  this->initialSize.Y() = _radius;
+                  this->initialSize.Z() = _radius;
+                  SP::SiconosSphere sphere(new SiconosSphere(_radius));
+                  sphere->setInsideMargin(_radius/2);
+                  bParent->SetCollisionShape(sphere, true);
+                }
+                else
+                {
+                  SP::SiconosSphere sphere(
+                    boost::static_pointer_cast<SiconosSphere>(c->shape));
+                  sphere->setRadius(_radius);
+                  sphere->setInsideMargin(_radius/2);
+                  bParent->SetCollisionShape(sphere, true);
+                }
               }
 
       /// \brief Initial size of sphere.

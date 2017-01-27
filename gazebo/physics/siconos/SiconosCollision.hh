@@ -85,8 +85,8 @@ namespace gazebo
       public: void SetCollisionShape(SP::SiconosShape _shape,
                                      bool _placeable = true);
 
-      /// \brief Get the siconos collision shape
-      public: SP::SiconosShape GetCollisionShape() const;
+      /// \brief Get the Siconos contactor
+      public: SP::SiconosContactor GetSiconosContactor() const;
 
       /// \brief Set the index of the compound shape
       public: void SetCompoundShapeIndex(int _index);
@@ -96,7 +96,11 @@ namespace gazebo
       /// \return Dynamically casted pointer to SiconosSurfaceParams.
       public: SiconosSurfaceParamsPtr GetSiconosSurface() const;
 
-      protected: SP::SiconosShape collisionShape;
+      /// \brief The Siconos contactor
+      protected: SP::SiconosContactor siconosContactor;
+
+      /// \brief The Siconos contactor's offset (transform relative to body)
+      protected: SP::SiconosVector offset;
 
       /// \brief Category bits for collision detection
       private: unsigned int categoryBits;

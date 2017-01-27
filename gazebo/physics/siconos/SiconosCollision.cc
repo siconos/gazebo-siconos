@@ -22,6 +22,11 @@
 #include "gazebo/physics/siconos/SiconosCollision.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
 
+#include "SiconosTypes.hh"
+
+#include <boost/make_shared.hpp>
+#include <siconos/SiconosContactor.hpp>
+
 using namespace gazebo;
 using namespace physics;
 
@@ -31,15 +36,14 @@ SiconosCollision::SiconosCollision(LinkPtr _parent)
 {
   this->SetName("Siconos_Collision");
   this->surface.reset(new SiconosSurfaceParams());
+  this->offset = std11::make_shared<SiconosVector>(7);
+  this->offset->zero();
+  (*this->offset)(3) = 1;
 }
 
 //////////////////////////////////////////////////
 SiconosCollision::~SiconosCollision()
 {
-  /*
-  delete this->collisionShape;
-  this->collisionShape = NULL;
-  */
 }
 
 //////////////////////////////////////////////////
@@ -60,7 +64,7 @@ void SiconosCollision::OnPoseChange()
   ignition::math::Pose3d pose = this->RelativePose();
   SiconosLinkPtr bbody = boost::dynamic_pointer_cast<SiconosLink>(this->parent);
 
-  // bbody->motionState.setWorldTransform(this, pose);
+  SiconosTypes::ConvertPoseToVector7(pose, this->offset);
 }
 
 //////////////////////////////////////////////////
@@ -98,7 +102,7 @@ unsigned int SiconosCollision::GetCollideBits() const
 ignition::math::Box SiconosCollision::BoundingBox() const
 {
   ignition::math::Box result;
-  if (this->collisionShape)
+  if (this->siconosContactor)
   {
       /*
     btVector3 btMin, btMax;
@@ -129,7 +133,11 @@ void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
                                          bool _placeable)
 {
   Collision::SetCollision(_placeable);
-  this->collisionShape = _shape;
+  if (this->siconosContactor)
+    this->siconosContactor->shape = _shape;
+  else
+    this->siconosContactor =
+      std11::make_shared<SiconosContactor>(_shape, this->offset);
 
   // btmath::Vector3 vec;
   // this->collisionShape->calculateLocalInertia(this->mass.GetAsDouble(), vec);
@@ -141,9 +149,9 @@ void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
 }
 
 //////////////////////////////////////////////////
-SP::SiconosShape SiconosCollision::GetCollisionShape() const
+SP::SiconosContactor SiconosCollision::GetSiconosContactor() const
 {
-  return this->collisionShape;
+  return this->siconosContactor;
 }
 
 //////////////////////////////////////////////////
