@@ -170,6 +170,9 @@ namespace gazebo
 
       /// \brief Pointer to the siconos physics engine.
       private: SiconosPhysicsPtr siconosPhysics;
+
+      private: SP::SiconosVector force;
+      private: SP::SiconosVector weight;
     };
     /// \}
   }

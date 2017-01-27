@@ -141,10 +141,13 @@ void SiconosLink::Init()
       // initial state vectors
       this->body.reset(new BodyDS(q,v,mass));
 
-      SP::SiconosVector weight(new SiconosVector(3));
-      weight->zero();
-      (*weight)(2) = -mass * 9.81;
-      this->body->setFExtPtr(weight);
+      this->force.reset(new SiconosVector(3));
+      this->weight.reset(new SiconosVector(3));
+      this->weight->zero();
+      this->weight->setValue(2, -mass * 9.81);
+
+      *this->force = *this->weight;
+      this->body->setFExtPtr(force);
 
       this->body->setContactors(this->contactorSet);
   }
@@ -426,12 +429,16 @@ ignition::math::Vector3d SiconosLink::WorldAngularVel() const
 }
 
 //////////////////////////////////////////////////
-void SiconosLink::SetForce(const ignition::math::Vector3d &/*_force*/)
+void SiconosLink::SetForce(const ignition::math::Vector3d &_force)
 {
   if (!this->body)
     return;
 
   // Siconos TODO
+  (*this->force)(0) = (*this->weight)(0) + _force.X();
+  (*this->force)(1) = (*this->weight)(1) + _force.Y();
+  (*this->force)(2) = (*this->weight)(2) + _force.Z();
+
   // this->body->applyCentralForce(
   //   btVector3(_force.x, _force.y, _force.z));
 }
@@ -525,9 +532,12 @@ void SiconosLink::SetAngularDamping(double /*_damping*/)
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddForce(const ignition::math::Vector3d &/*_force*/)
+void SiconosLink::AddForce(const ignition::math::Vector3d &_force)
 {
-  gzlog << "SiconosLink::AddForce not yet implemented." << std::endl;
+  // Siconos TODO
+  (*this->force)(0) = (*this->weight)(0) + _force.X();
+  (*this->force)(1) = (*this->weight)(1) + _force.Y();
+  (*this->force)(2) = (*this->weight)(2) + _force.Z();
 }
 
 /////////////////////////////////////////////////
@@ -553,10 +563,12 @@ void SiconosLink::AddForceAtRelativePosition(const ignition::math::Vector3d &/*_
 }
 
 //////////////////////////////////////////////////
-void SiconosLink::AddLinkForce(const ignition::math::Vector3d &/*_force*/,
+void SiconosLink::AddLinkForce(const ignition::math::Vector3d &_force,
     const ignition::math::Vector3d &/*_offset*/)
 {
-  gzlog << "SiconosLink::AddLinkForce not yet implemented (#1476)."
+  // Siconos TODO
+  AddForce(_force);
+  gzlog << "SiconosLink::AddLinkForce not yet implemented correctly."
         << std::endl;
 }
 
