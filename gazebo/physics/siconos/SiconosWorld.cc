@@ -21,6 +21,7 @@
 #include <BodyDS.hpp>
 #include <SiconosBulletCollisionManager.hpp>
 #include <NewtonImpactFrictionNSL.hpp>
+#include <GenericMechanical.hpp>
 
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
@@ -68,15 +69,22 @@ void SiconosWorld::setup()
     this->timedisc.reset(new TimeDiscretisation(0, h));
 
     // -- OneStepNsProblem --
-    this->osnspb.reset(new FrictionContact(3));
+    //this->osnspb.reset(new FrictionContact(3));
+    SP::GenericMechanical _osnspb(
+      std11::make_shared<GenericMechanical>(SICONOS_FRICTION_3D_ONECONTACT_NSN));
+    this->osnspb = _osnspb;
 
     // -- Some configuration (TODO: parameters from SDF)
-    this->osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
-    this->osnspb->numericsSolverOptions()->dparam[0] = 1e-5; // Tolerance
-    this->osnspb->setMaxSize(16384);                         // max number of interactions
-    this->osnspb->setMStorageType(1);                        // Sparse storage
-    this->osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
-    this->osnspb->setKeepLambdaAndYState(true);              // inject previous solution
+    _osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
+    _osnspb->numericsSolverOptions()->dparam[0] = 1e-5; // Tolerance
+    _osnspb->numericsSolverOptions()->iparam[1] = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
+    _osnspb->numericsSolverOptions()->iparam[14] = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
+    _osnspb->numericsSolverOptions()->internalSolvers->solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
+    _osnspb->numericsSolverOptions()->internalSolvers->iparam[0] = 100;
+    _osnspb->setMaxSize(16384);                         // max number of interactions
+    _osnspb->setMStorageType(1);                        // Sparse storage
+    _osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
+    _osnspb->setKeepLambdaAndYState(true);              // inject previous solution
 
     // --- Simulation initialization ---
 
@@ -97,6 +105,7 @@ void SiconosWorld::setup()
     this->simulation->insertInteractionManager(this->manager);
 
     // TODO: parameters from SDF
+    this->simulation->setNewtonOptions(SICONOS_TS_NONLINEAR);
     this->simulation->setNewtonMaxIteration(2);
     this->simulation->setNewtonTolerance(1e-10);
 

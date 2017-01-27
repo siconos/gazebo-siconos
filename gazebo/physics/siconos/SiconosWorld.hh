@@ -61,8 +61,8 @@ class SiconosWorld
   private: SP::TimeDiscretisation timedisc;
 
   /// \brief The Siconos OneStepNonSmoothProblem for this
-  ///        simulation's friction constraint
-  private: SP::FrictionContact osnspb;
+  ///        simulation's constraints
+  private: SP::OneStepNSProblem osnspb;
 
   /// \brief The Siconos broadphase collision manager
   private: SP::SiconosBulletCollisionManager manager;
