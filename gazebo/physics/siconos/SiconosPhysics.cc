@@ -63,8 +63,6 @@ GZ_REGISTER_PHYSICS_ENGINE("siconos", SiconosPhysics)
 SiconosPhysics::SiconosPhysics(WorldPtr _world)
     : PhysicsEngine(_world)
 {
-  this->siconosWorld.reset(new ::SiconosWorld(this));
-
   // Set random seed for physics engine based on gazebo's random seed.
   // Note: this was moved from physics::PhysicsEngine constructor.
   this->SetSeed(ignition::math::Rand::Seed());
@@ -82,6 +80,8 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
 
   sdf::ElementPtr siconosElem = this->sdf->GetElement("siconos");
 
+  this->siconosWorld.reset(new SiconosWorld(this));
+
   auto g = this->world->Gravity();
   // ODEPhysics checks this, so we will too.
   if (g == ignition::math::Vector3d::Zero)
@@ -90,7 +90,7 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
 
   // Need to initialize the model which will receive created DSs.
   // Note: Doing this in Init() is too late!
-  this->siconosWorld->init();
+  this->siconosWorld->setup();
 }
 
 

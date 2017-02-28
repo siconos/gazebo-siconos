@@ -28,6 +28,7 @@
 #include "gazebo/common/Exception.hh"
 #include "gazebo/physics/Model.hh"
 #include "gazebo/physics/Link.hh"
+#include "gazebo/physics/PhysicsEngine.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 
 struct SiconosWorldImpl
@@ -56,6 +57,9 @@ struct SiconosWorldImpl
 
   /// \brief Gazebo SiconosPhysics physics engine
   gazebo::physics::PhysicsEngine *physics;
+
+  /// \brief Store timestep so we can check if it changed
+  double maxStepSize;
 };
 
 SiconosWorld::SiconosWorld(gazebo::physics::PhysicsEngine *physics)
@@ -64,8 +68,7 @@ SiconosWorld::SiconosWorld(gazebo::physics::PhysicsEngine *physics)
     this->impl->gravity.resize(3);
     this->impl->gravity.zero();
     this->impl->physics = physics;
-
-    this->setup();
+    this->impl->maxStepSize = 0;
 }
 
 SiconosWorld::~SiconosWorld()
@@ -75,8 +78,6 @@ SiconosWorld::~SiconosWorld()
 void SiconosWorld::setup()
 {
   // User-defined main parameters (TODO: parameters from SDF)
-  double h = 0.001;                // time step
-
   double theta = 0.5;              // theta for MoreauJeanOSI integrator
 
   // -----------------------------------------
@@ -96,7 +97,8 @@ void SiconosWorld::setup()
     // ------------------
 
     // -- Time discretisation --
-    this->impl->timedisc.reset(new TimeDiscretisation(0, h));
+    this->impl->maxStepSize = impl->physics->GetMaxStepSize();
+    this->impl->timedisc = std11::make_shared<TimeDiscretisation>(0, this->impl->maxStepSize);
 
     // -- OneStepNsProblem --
     //this->osnspb.reset(new FrictionContact(3));
@@ -110,7 +112,7 @@ void SiconosWorld::setup()
     _osnspb->numericsSolverOptions()->iparam[1] = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
     _osnspb->numericsSolverOptions()->iparam[14] = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
     _osnspb->numericsSolverOptions()->internalSolvers->solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
-    _osnspb->numericsSolverOptions()->internalSolvers->iparam[0] = 100;
+    _osnspb->numericsSolverOptions()->internalSolvers->iparam[0] = 10;
     _osnspb->setMaxSize(16384);                         // max number of interactions
     _osnspb->setMStorageType(1);                        // Sparse storage
     _osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
@@ -141,6 +143,7 @@ void SiconosWorld::setup()
     this->impl->simulation->setNewtonTolerance(1e-10);
 
     this->impl->model->setSimulation(this->impl->simulation);
+    this->impl->model->initialize();
   }
 
   catch (SiconosException e)
@@ -155,15 +158,18 @@ void SiconosWorld::setup()
   }
 }
 
-void SiconosWorld::init()
-{
-    this->impl->model->initialize();
-}
-
 void SiconosWorld::compute()
 {
   try
   {
+    if (this->impl->maxStepSize != this->impl->physics->GetMaxStepSize())
+    {
+      this->impl->maxStepSize = this->impl->physics->GetMaxStepSize();
+      this->impl->timedisc = std11::make_shared<TimeDiscretisation>(
+        this->impl->simulation->nextTime(), this->impl->maxStepSize);
+      this->impl->simulation->setTimeDiscretisationPtr(this->impl->timedisc);
+    }
+
     float time = this->impl->simulation->nextTime();
 
     GZ_ASSERT(this->impl->simulation->hasNextEvent(), "Simulation has no more events.");

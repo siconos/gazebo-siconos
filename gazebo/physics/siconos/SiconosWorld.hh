@@ -36,9 +36,6 @@ class SiconosWorld
   /// \brief Set up the simulation data structures
   public: virtual void setup();
 
-  /// \brief Initialization of the simulation
-  public: virtual void init();
-
   /// \brief Compute a step of the simulation
   public: virtual void compute();
 
