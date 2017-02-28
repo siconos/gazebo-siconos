@@ -30,10 +30,40 @@
 #include "gazebo/physics/Link.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 
-SiconosWorld::SiconosWorld()
+struct SiconosWorldImpl
 {
-    this->gravity.resize(3);
-    this->gravity.zero();
+  /// \brief Gravity vector
+  SiconosVector gravity;
+
+  /// \brief The Siconos OneStepIntegrator for this simulation
+  SP::OneStepIntegrator osi;
+
+  /// \brief The Siconos Model for this simulation
+  SP::Model model;
+
+  /// \brief The Siconos TimeDiscretisation for this simulation
+  SP::TimeDiscretisation timedisc;
+
+  /// \brief The Siconos OneStepNonSmoothProblem for this
+  ///        simulation's constraints
+  SP::OneStepNSProblem osnspb;
+
+  /// \brief The Siconos broadphase collision manager
+  SP::SiconosBulletCollisionManager manager;
+
+  /// \brief The Siconos TimeStepping handler for this simulation
+  SP::TimeStepping simulation;
+
+  /// \brief Gazebo SiconosPhysics physics engine
+  gazebo::physics::PhysicsEngine *physics;
+};
+
+SiconosWorld::SiconosWorld(gazebo::physics::PhysicsEngine *physics)
+  : impl(new SiconosWorldImpl())
+{
+    this->impl->gravity.resize(3);
+    this->impl->gravity.zero();
+    this->impl->physics = physics;
 
     this->setup();
 }
@@ -56,23 +86,23 @@ void SiconosWorld::setup()
   try
   {
     // -- OneStepIntegrators --
-    this->osi.reset(new MoreauJeanOSI(theta));
+    this->impl->osi.reset(new MoreauJeanOSI(theta));
 
     // -- Model --
-    this->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
+    this->impl->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
 
     // ------------------
     // --- Simulation ---
     // ------------------
 
     // -- Time discretisation --
-    this->timedisc.reset(new TimeDiscretisation(0, h));
+    this->impl->timedisc.reset(new TimeDiscretisation(0, h));
 
     // -- OneStepNsProblem --
     //this->osnspb.reset(new FrictionContact(3));
     SP::GenericMechanical _osnspb(
       std11::make_shared<GenericMechanical>(SICONOS_FRICTION_3D_ONECONTACT_NSN));
-    this->osnspb = _osnspb;
+    this->impl->osnspb = _osnspb;
 
     // -- Some configuration (TODO: parameters from SDF)
     _osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
@@ -89,27 +119,28 @@ void SiconosWorld::setup()
     // --- Simulation initialization ---
 
     // -- The collision manager adds or removes interactions using
-    // -- Bullet-based contact detection
-    this->manager.reset(new SiconosBulletCollisionManager());
+    // -- Bullet-based contact detection.  Some options are available.
+    SiconosBulletOptions options;
+    this->impl->manager.reset(new SiconosBulletCollisionManager(options));
 
     // -- insert a default non smooth law for contactors id 0
     // TODO handle friction properly
-    this->manager->insertNonSmoothLaw(
+    this->impl->manager->insertNonSmoothLaw(
       SP::NewtonImpactFrictionNSL(new NewtonImpactFrictionNSL(0.8, 0., 0.1, 3)), 0, 0);
 
     // -- MoreauJeanOSI Time Stepping for body mechanics
-    this->simulation.reset(new TimeStepping(this->timedisc));
+    this->impl->simulation.reset(new TimeStepping(this->impl->timedisc));
 
-    this->simulation->insertIntegrator(this->osi);
-    this->simulation->insertNonSmoothProblem(this->osnspb);
-    this->simulation->insertInteractionManager(this->manager);
+    this->impl->simulation->insertIntegrator(this->impl->osi);
+    this->impl->simulation->insertNonSmoothProblem(this->impl->osnspb);
+    this->impl->simulation->insertInteractionManager(this->impl->manager);
 
     // TODO: parameters from SDF
-    this->simulation->setNewtonOptions(SICONOS_TS_NONLINEAR);
-    this->simulation->setNewtonMaxIteration(2);
-    this->simulation->setNewtonTolerance(1e-10);
+    this->impl->simulation->setNewtonOptions(SICONOS_TS_NONLINEAR);
+    this->impl->simulation->setNewtonMaxIteration(2);
+    this->impl->simulation->setNewtonTolerance(1e-10);
 
-    this->model->setSimulation(this->simulation);
+    this->impl->model->setSimulation(this->impl->simulation);
   }
 
   catch (SiconosException e)
@@ -126,20 +157,20 @@ void SiconosWorld::setup()
 
 void SiconosWorld::init()
 {
-    this->model->initialize();
+    this->impl->model->initialize();
 }
 
 void SiconosWorld::compute()
 {
   try
   {
-    float time = this->simulation->nextTime();
+    float time = this->impl->simulation->nextTime();
 
-    GZ_ASSERT(this->simulation->hasNextEvent(), "Simulation has no more events.");
+    GZ_ASSERT(this->impl->simulation->hasNextEvent(), "Simulation has no more events.");
 
-    this->simulation->computeOneStep();
+    this->impl->simulation->computeOneStep();
 
-    this->simulation->nextStep();
+    this->impl->simulation->nextStep();
   }
 
   catch (SiconosException e)
@@ -152,14 +183,29 @@ void SiconosWorld::compute()
   }
 }
 
+SP::OneStepIntegrator SiconosWorld::GetOneStepIntegrator() const
+{
+  return this->impl->osi;
+}
+
+SP::Model SiconosWorld::GetModel() const
+{
+  return this->impl->model;
+}
+
 SP::SiconosCollisionManager SiconosWorld::GetManager() const
 {
-  return manager;
+  return this->impl->manager;
+}
+
+SP::TimeStepping SiconosWorld::GetSimulation() const
+{
+  return this->impl->simulation;
 }
 
 void SiconosWorld::SetGravity(double _x, double _y, double _z)
 {
-    this->gravity.setValue(0, _x);
-    this->gravity.setValue(1, _y);
-    this->gravity.setValue(2, _z);
+    this->impl->gravity.setValue(0, _x);
+    this->impl->gravity.setValue(1, _y);
+    this->impl->gravity.setValue(2, _z);
 }

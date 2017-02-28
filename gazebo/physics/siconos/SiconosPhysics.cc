@@ -63,7 +63,7 @@ GZ_REGISTER_PHYSICS_ENGINE("siconos", SiconosPhysics)
 SiconosPhysics::SiconosPhysics(WorldPtr _world)
     : PhysicsEngine(_world)
 {
-  this->siconosWorld.reset(new ::SiconosWorld());
+  this->siconosWorld.reset(new ::SiconosWorld(this));
 
   // Set random seed for physics engine based on gazebo's random seed.
   // Note: this was moved from physics::PhysicsEngine constructor.

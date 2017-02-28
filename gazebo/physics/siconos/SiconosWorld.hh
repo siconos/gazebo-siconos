@@ -23,10 +23,12 @@
 
 #define NDOF 6
 
+struct SiconosWorldImpl;
+
 class SiconosWorld
 {
   /// \brief Constructor
-  public: SiconosWorld();
+  public: SiconosWorld(gazebo::physics::PhysicsEngine*);
 
   /// \brief Destructor
   public: ~SiconosWorld();
@@ -43,38 +45,20 @@ class SiconosWorld
   /// \brief Gravity
   public: void SetGravity(double x, double y, double z);
 
-  /// \brief Gravity vector
-  private: SiconosVector gravity;
-
-  /// \brief The Siconos OneStepIntegrator for this simulation
-  private: SP::OneStepIntegrator osi;
-
-  public: SP::OneStepIntegrator GetOneStepIntegrator() const { return osi; }
-
-  /// \brief The Siconos Model for this simulation
-  private: SP::Model model;
+  /// \brief Get the Siconos OneStepIntegrator for this simulation
+  public: SP::OneStepIntegrator GetOneStepIntegrator() const;
 
   /// \brief Get the Siconos Model for this simulation
-  public: SP::Model GetModel() const { return model; }
-
-  /// \brief The Siconos TimeDiscretisation for this simulation
-  private: SP::TimeDiscretisation timedisc;
-
-  /// \brief The Siconos OneStepNonSmoothProblem for this
-  ///        simulation's constraints
-  private: SP::OneStepNSProblem osnspb;
-
-  /// \brief The Siconos broadphase collision manager
-  private: SP::SiconosBulletCollisionManager manager;
+  public: SP::Model GetModel() const;
 
   /// \brief Get the Siconos CollisionManager for this simulation
   public: SP::SiconosCollisionManager GetManager() const;
 
-  /// \brief The Siconos TimeStepping handler for this simulation
-  private: SP::TimeStepping simulation;
-
   /// \brief Get the Siconos Simulation for this simulation
-  public: SP::TimeStepping GetSimulation() const { return simulation; }
+  public: SP::TimeStepping GetSimulation() const;
+
+  /// \brief Private implementation data
+  private: std::unique_ptr<SiconosWorldImpl> impl;
 };
 
 #endif
