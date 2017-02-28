@@ -173,8 +173,9 @@ void SiconosLink::Init()
 
     // Initialize DS worksapce
     siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-      ->topology()->initW(siconosWorld->GetSimulation()->nextTime(),
-                          this->body, siconosWorld->GetOneStepIntegrator());
+      ->topology()->initDS(siconosWorld->GetModel(),
+                           siconosWorld->GetSimulation()->nextTime(),
+                           this->body, siconosWorld->GetOneStepIntegrator());
 
     /* Initialize the DS at the current time */
     this->body->initialize(siconosWorld->GetSimulation()->nextTime(),
