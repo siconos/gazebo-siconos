@@ -66,6 +66,11 @@ SiconosPhysics::SiconosPhysics(WorldPtr _world)
   // Set random seed for physics engine based on gazebo's random seed.
   // Note: this was moved from physics::PhysicsEngine constructor.
   this->SetSeed(ignition::math::Rand::Seed());
+
+  // In the future, we could set this to various simulation method and
+  // integration method combinations.  For now, the default is
+  // TimeStepping with the MoreauJean OSI.
+  this->solverType = "TimeStepping.MoreauJean";
 }
 
 /// \brief Destructor
@@ -151,8 +156,11 @@ void SiconosPhysics::OnRequest(ConstRequestPtr &_msg)
     // min_step_size is defined but not yet used
     physicsMsg.set_min_step_size(
       boost::any_cast<double>(this->GetParam("min_step_size")));
+
+    // Interpret "iters" as Newton iterations
     physicsMsg.set_iters(
-      boost::any_cast<int>(this->GetParam("iters")));
+      boost::any_cast<int>(this->GetParam("newton_iters")));
+
     physicsMsg.set_enable_physics(this->world->PhysicsEnabled());
 
     physicsMsg.mutable_gravity()->CopyFrom(
@@ -204,9 +212,25 @@ boost::any SiconosPhysics::GetParam(const std::string &_key) const
 //////////////////////////////////////////////////
 bool SiconosPhysics::GetParam(const std::string &_key, boost::any &_value) const
 {
+  /* We steal some parameters from Bullet for now */
+  sdf::ElementPtr bulletElem = this->sdf->GetElement("bullet");
+  GZ_ASSERT(bulletElem != nullptr, "Bullet SDF element does not exist");
+
   sdf::ElementPtr siconosElem = this->sdf->GetElement("siconos");
-  GZ_ASSERT(siconosElem != nullptr, "Siconos SDF element does not exist");
-  return PhysicsEngine::GetParam(_key, _value);
+  //GZ_ASSERT(siconosElem != nullptr, "Siconos SDF element does not exist");
+
+  printf("SiconosPhysics::GetParam(%s)\n", _key.c_str());
+
+  if (_key == "newton_iters")
+    // Borrow Bullet's "iters" parameter for now
+    _value = bulletElem->GetElement("solver")->Get<int>("iters");
+  else if (_key == "min_step_size")
+    _value = bulletElem->GetElement("solver")->Get<double>("min_step_size");
+  else
+  {
+    return PhysicsEngine::GetParam(_key, _value);
+  }
+  return true;
 }
 
 //////////////////////////////////////////////////

@@ -137,9 +137,12 @@ void SiconosWorld::setup()
     this->impl->simulation->insertNonSmoothProblem(this->impl->osnspb);
     this->impl->simulation->insertInteractionManager(this->impl->manager);
 
-    // TODO: parameters from SDF
     this->impl->simulation->setNewtonOptions(SICONOS_TS_NONLINEAR);
-    this->impl->simulation->setNewtonMaxIteration(2);
+
+    this->impl->simulation->setNewtonMaxIteration(
+      boost::any_cast<int>(this->impl->physics->GetParam("newton_iters")));
+
+    // TODO: parameters from SDF
     this->impl->simulation->setNewtonTolerance(1e-10);
 
     this->impl->model->setSimulation(this->impl->simulation);
