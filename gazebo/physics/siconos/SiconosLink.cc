@@ -114,20 +114,10 @@ void SiconosLink::Init()
   }
 
   // Initial position and velocity
-  SP::SiconosVector q(new SiconosVector(7));
-  SP::SiconosVector v(new SiconosVector(6));
-  q->zero();
-  v->zero();
-  (*q)(3) = 1.0;
-
-  ignition::math::Pose3d pose = this->WorldInertialPose();
-  (*q)(0) = pose.Pos().X();
-  (*q)(1) = pose.Pos().Y();
-  (*q)(2) = pose.Pos().Z();
-  (*q)(3) = pose.Rot().W();
-  (*q)(4) = pose.Rot().X();
-  (*q)(5) = pose.Rot().Y();
-  (*q)(6) = pose.Rot().Z();
+  SP::SiconosVector q(SiconosTypes::ConvertPose(this->WorldInertialPose()));
+  SP::SiconosVector v(std11::make_shared<SiconosVector>(6));
+  SiconosTypes::ConvertVector3(this->WorldCoGLinearVel(), *v, 0);
+  SiconosTypes::ConvertVector3(this->WorldAngularVel(), *v, 3);
 
   if (this->IsStatic() || this->GetKinematic())
   {
@@ -285,6 +275,7 @@ void SiconosLink::OnPoseChange()
   const ignition::math::Pose3d myPose = this->WorldCoGPose();
 
   SiconosTypes::ConvertPoseToVector7(myPose, this->body->q());
+  this->body->swapInMemory();
 }
 
 //////////////////////////////////////////////////
@@ -592,11 +583,9 @@ void SiconosLink::SetLinkStatic(bool /*_static*/)
 //////////////////////////////////////////////////
 void SiconosLink::UpdatePoseFromBody()
 {
-  // TODO static links have no body, position is only in contactor
   if (this->body) {
     SiconosVector &q = *this->body->q();
-    this->dirtyPose.Pos().Set(q(0), q(1), q(2));
-    this->dirtyPose.Rot().Set(q(3), q(4), q(5), q(6));
+    this->dirtyPose = SiconosTypes::ConvertPose(this->body->q());
     world->_AddDirty(this);
   }
 }

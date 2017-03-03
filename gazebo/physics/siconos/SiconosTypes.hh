@@ -63,6 +63,30 @@ namespace gazebo
                 return v;
               }
 
+      /// \brief Convert a gazebo Vector3 to an existing SiconosVector with optional offset.
+      /// \param[in] _vec Gazebo Vector3.
+      /// \return SiconosVector of size > 3.
+      public: static void ConvertVector3(
+        const ignition::math::Vector3d &_vec,
+        SP::SiconosVector &v, unsigned int offset=0)
+              {
+                (*v)(offset+0) = _vec.X();
+                (*v)(offset+1) = _vec.Y();
+                (*v)(offset+2) = _vec.Z();
+              }
+
+      /// \brief Convert a gazebo Vector3 to an existing SiconosVector with optional offset.
+      /// \param[in] _vec Gazebo Vector3.
+      /// \return SiconosVector of size > 3.
+      public: static void ConvertVector3(
+        const ignition::math::Vector3d &_vec,
+        SiconosVector &v, unsigned int offset=0)
+              {
+                v(offset+0) = _vec.X();
+                v(offset+1) = _vec.Y();
+                v(offset+2) = _vec.Z();
+              }
+
       /// \brief Convert a SiconosVector(7) to a gazebo pose.
       /// \param[in] _v SiconosVector of size 7.
       /// \return Gazebo pose.
