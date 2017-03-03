@@ -513,9 +513,27 @@ void SiconosLink::AddForce(const ignition::math::Vector3d &_force)
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddRelativeForce(const ignition::math::Vector3d &/*_force*/)
+void SiconosLink::AddRelativeForce(const ignition::math::Vector3d &_force)
 {
-  gzlog << "SiconosLink::AddRelativeForce not yet implemented." << std::endl;
+  if (this->body)
+  {
+    // Force vector represents a direction only, so it should be
+    // rotated but not translated
+    ignition::math::Vector3d forceWorld =
+      this->WorldPose().Rot().RotateVector(_force);
+
+    (*this->force)(0) += forceWorld.X();
+    (*this->force)(1) += forceWorld.Y();
+    (*this->force)(2) += forceWorld.Z();
+
+    this->SetEnabled(true);
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddRelativeForce"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////
@@ -536,12 +554,31 @@ void SiconosLink::AddForceAtRelativePosition(const ignition::math::Vector3d &/*_
 
 //////////////////////////////////////////////////
 void SiconosLink::AddLinkForce(const ignition::math::Vector3d &_force,
-    const ignition::math::Vector3d &/*_offset*/)
+    const ignition::math::Vector3d &_offset)
 {
-  // Siconos TODO
-  AddForce(_force);
-  gzlog << "SiconosLink::AddLinkForce not yet implemented correctly."
-        << std::endl;
+  if (this->body)
+  {
+    // Force vector represents a direction only, so it should be
+    // rotated but not translated
+    ignition::math::Vector3d forceWorld =
+      this->WorldPose().Rot().RotateVector(_force);
+
+    // Siconos TODO
+    ignition::math::Vector3d offsetCoG = _offset -
+      this->inertial->CoG();
+
+    (*this->force)(0) += forceWorld.X();
+    (*this->force)(1) += forceWorld.Y();
+    (*this->force)(2) += forceWorld.Z();
+
+    this->SetEnabled(true);
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddLinkForce"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////

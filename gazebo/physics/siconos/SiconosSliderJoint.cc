@@ -258,19 +258,18 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
     SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
     SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
 
-    // Axis is already in the frame of ds1
     ignition::math::Vector3d axis(
       SiconosTypes::ConvertVector3(this->siconosPrismaticJointR->_axis0) );
 
     if (link0 && link1) {
-      link0->AddForce(axis * -_effort);
-      link1->AddForce(axis * _effort);
+      link0->AddRelativeForce(axis * -_effort);
+      link1->AddRelativeForce(axis * _effort);
     }
     else if (link0) {
-      link0->AddForce(axis * _effort);
+      link0->AddRelativeForce(axis * _effort);
     }
     else if (link1) {
-      link1->AddForce(axis * _effort);
+      link1->AddRelativeForce(axis * _effort);
     }
   }
 }
