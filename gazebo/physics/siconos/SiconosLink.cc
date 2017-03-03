@@ -128,14 +128,9 @@ void SiconosLink::Init()
   {
       // Otherwise, create the dynamic system with given inertia and
       // initial state vectors
-      this->body.reset(new BodyDS(q,v,mass));
+      this->body = std11::make_shared<BodyDS>(q,v,mass);
 
-      this->force.reset(new SiconosVector(3));
-      this->weight.reset(new SiconosVector(3));
-      this->weight->zero();
-      this->weight->setValue(2, -mass * 9.81);
-
-      *this->force = *this->weight;
+      this->force = std11::make_shared<SiconosVector>(3);
       this->body->setFExtPtr(force);
 
       this->body->setContactors(this->contactorSet);
@@ -418,13 +413,7 @@ void SiconosLink::SetForce(const ignition::math::Vector3d &_force)
   if (!this->body)
     return;
 
-  // Siconos TODO
-  (*this->force)(0) = (*this->weight)(0) + _force.X();
-  (*this->force)(1) = (*this->weight)(1) + _force.Y();
-  (*this->force)(2) = (*this->weight)(2) + _force.Z();
-
-  // this->body->applyCentralForce(
-  //   btVector3(_force.x, _force.y, _force.z));
+  SiconosTypes::ConvertVector3(_force, this->force);
 }
 
 //////////////////////////////////////////////////
@@ -518,10 +507,9 @@ void SiconosLink::SetAngularDamping(double /*_damping*/)
 /////////////////////////////////////////////////
 void SiconosLink::AddForce(const ignition::math::Vector3d &_force)
 {
-  // Siconos TODO
-  (*this->force)(0) = (*this->weight)(0) + _force.X();
-  (*this->force)(1) = (*this->weight)(1) + _force.Y();
-  (*this->force)(2) = (*this->weight)(2) + _force.Z();
+  (*this->force)(0) += _force.X();
+  (*this->force)(1) += _force.Y();
+  (*this->force)(2) += _force.Z();
 }
 
 /////////////////////////////////////////////////
@@ -584,7 +572,6 @@ void SiconosLink::SetLinkStatic(bool /*_static*/)
 void SiconosLink::UpdatePoseFromBody()
 {
   if (this->body) {
-    SiconosVector &q = *this->body->q();
     this->dirtyPose = SiconosTypes::ConvertPose(this->body->q());
     world->_AddDirty(this);
   }

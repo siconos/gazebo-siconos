@@ -28,6 +28,7 @@
 #include "gazebo/common/Exception.hh"
 #include "gazebo/physics/Model.hh"
 #include "gazebo/physics/Link.hh"
+#include "gazebo/physics/World.hh"
 #include "gazebo/physics/PhysicsEngine.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 
@@ -177,6 +178,8 @@ void SiconosWorld::compute()
 
     GZ_ASSERT(this->impl->simulation->hasNextEvent(), "Simulation has no more events.");
 
+    AddGravityToLinks();
+
     this->impl->simulation->computeOneStep();
 
     this->impl->simulation->nextStep();
@@ -189,6 +192,21 @@ void SiconosWorld::compute()
   catch (...)
   {
     gzerr << "Exception caught in SiconosWorld::compute()";
+  }
+}
+
+void SiconosWorld::AddGravityToLinks()
+{
+  // Add gravity to all objects
+  for (const auto &m : this->impl->physics->World()->Models())
+  {
+    const auto& g( this->impl->physics->World()->Gravity() );
+    for (auto &lk : m->GetLinks()) {
+      gazebo::physics::SiconosLinkPtr link(
+        boost::static_pointer_cast<gazebo::physics::SiconosLink>(lk));
+      if (link->GetSiconosBodyDS())
+        link->AddForce(link->GetSiconosBodyDS()->scalarMass() * g);
+    }
   }
 }
 

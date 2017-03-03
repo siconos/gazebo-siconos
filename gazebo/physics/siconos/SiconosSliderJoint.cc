@@ -251,31 +251,27 @@ void SiconosSliderJoint::SetDamping(unsigned int /*index*/,
 }
 
 //////////////////////////////////////////////////
-void SiconosSliderJoint::SetForceImpl(unsigned int /*_index*/,
-                                      double /*_effort*/)
+void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
 {
-  if (this->siconosPrismaticJointR)
+  if (this->siconosPrismaticJointR && _index==0)
   {
-    // TODO
-    // // x-axis of constraint frame
-    // btVector3 hingeAxisLocalA =
-    //   this->siconosPrismaticJointR->getFrameOffsetA().getBasis().getColumn(0);
-    // btVector3 hingeAxisLocalB =
-    //   this->siconosPrismaticJointR->getFrameOffsetB().getBasis().getColumn(0);
+    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
+    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
 
-    // btVector3 hingeAxisWorldA =
-    //   this->siconosPrismaticJointR->getRigidBodyA().getWorldTransform().getBasis() *
-    //   hingeAxisLocalA;
-    // btVector3 hingeAxisWorldB =
-    //   this->siconosPrismaticJointR->getRigidBodyB().getWorldTransform().getBasis() *
-    //   hingeAxisLocalB;
+    // Axis is already in the frame of ds1
+    ignition::math::Vector3d axis(
+      SiconosTypes::ConvertVector3(this->siconosPrismaticJointR->_axis0) );
 
-    // btVector3 hingeForceA = _effort * hingeAxisWorldA;
-    // btVector3 hingeForceB = _effort * hingeAxisWorldB;
-
-    // // TODO: switch to applyForce and specify body-fixed offset
-    // this->constraint->getRigidBodyA().applyCentralForce(-hingeForceA);
-    // this->constraint->getRigidBodyB().applyCentralForce(hingeForceB);
+    if (link0 && link1) {
+      link0->AddForce(axis * -_effort);
+      link1->AddForce(axis * _effort);
+    }
+    else if (link0) {
+      link0->AddForce(axis * _effort);
+    }
+    else if (link1) {
+      link1->AddForce(axis * _effort);
+    }
   }
 }
 

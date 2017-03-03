@@ -42,6 +42,9 @@ class SiconosWorld
   /// \brief Gravity
   public: void SetGravity(double x, double y, double z);
 
+  /// \brief Add gravity forces to all objects
+  public: void AddGravityToLinks();
+
   /// \brief Get the Siconos OneStepIntegrator for this simulation
   public: SP::OneStepIntegrator GetOneStepIntegrator() const;
 
