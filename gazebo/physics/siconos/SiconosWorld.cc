@@ -168,10 +168,7 @@ void SiconosWorld::compute()
   {
     if (this->impl->maxStepSize != this->impl->physics->GetMaxStepSize())
     {
-      this->impl->maxStepSize = this->impl->physics->GetMaxStepSize();
-      this->impl->timedisc = std11::make_shared<TimeDiscretisation>(
-        this->impl->simulation->nextTime(), this->impl->maxStepSize);
-      this->impl->simulation->setTimeDiscretisationPtr(this->impl->timedisc);
+      gzerr << "Changing timestep not currently supported in Siconos." << std::endl;
     }
 
     float time = this->impl->simulation->nextTime();
