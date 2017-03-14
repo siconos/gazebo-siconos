@@ -335,12 +335,10 @@ ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int /*_index*/)
 
   if (this->siconosPrismaticJointR)
   {
-    // bullet uses x-axis for slider
-    // TODO
-    // btVector3 vec =
-    //   this->siconosPrismaticJointR->getRigidBodyA().getCenterOfMassTransform().getBasis()
-    //   * this->siconosPrismaticJointR->getFrameOffsetA().getBasis().getColumn(0);
-    // result = SiconosTypes::ConvertVector3(vec);
+    // Slider axis in child frame, rotated to match the child link pose
+    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->childLink));
+    result = this->childLink->WorldPose().Rot().RotateVector(
+      SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 ));
   }
 
   return result;
@@ -355,18 +353,10 @@ double SiconosSliderJoint::PositionImpl(unsigned int _index) const
     return 0.0;
   }
 
-  // The getLinearPos function seems to be off by one time-step
-  // https://github.com/siconosphysics/siconos3/issues/239
-  // if (this->siconosPrismaticJointR)
-  //   result = this->siconosPrismaticJointR->getLinearPos();
-  // else
-  //   gzlog << "siconosPrismaticJointR does not exist, returning default position\n";
-
   // Compute slider angle from gazebo's cached poses instead
   ignition::math::Vector3d offset = this->WorldPose().Pos()
                                     - this->ParentWorldPose().Pos();
   ignition::math::Vector3d axis = this->GlobalAxis(_index);
-  ignition::math::Pose3d poseParent = this->WorldPose();
   return axis.Dot(offset);
 }
 
