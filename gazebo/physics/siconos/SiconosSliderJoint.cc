@@ -117,9 +117,9 @@ void SiconosSliderJoint::Init()
   if (siconosChildLink && siconosParentLink)
   {
     this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-        ds1 = siconosParentLink->GetSiconosBodyDS(),
-        ds2 = siconosChildLink->GetSiconosBodyDS(),
-        SiconosTypes::ConvertVector3(axisParent));
+        ds1 = siconosChildLink->GetSiconosBodyDS(),
+        ds2 = siconosParentLink->GetSiconosBodyDS(),
+        SiconosTypes::ConvertVector3(axisChild));
   }
   // If only the child exists, then create a joint between the child
   // and the world.
@@ -255,15 +255,15 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
 {
   if (this->siconosPrismaticJointR && _index==0)
   {
-    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
-    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
+    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->childLink));
+    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->parentLink));
 
     ignition::math::Vector3d axis(
       SiconosTypes::ConvertVector3(this->siconosPrismaticJointR->_axis0) );
 
     if (link0 && link1) {
-      link0->AddRelativeForce(axis * -_effort);
-      link1->AddRelativeForce(axis * _effort);
+      link0->AddRelativeForce(axis * _effort);
+      link1->AddRelativeForce(axis * -_effort);
     }
     else if (link0) {
       link0->AddRelativeForce(axis * _effort);
