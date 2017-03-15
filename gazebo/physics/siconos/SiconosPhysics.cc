@@ -197,6 +197,7 @@ void SiconosPhysics::UpdatePhysics()
       for (auto &lk : m->GetLinks()) {
           static_cast<SiconosLink*>(&*lk)->UpdatePoseFromBody();
           static_cast<SiconosLink*>(&*lk)->SetForce(ignition::math::Vector3d(0,0,0));
+          static_cast<SiconosLink*>(&*lk)->SetTorque(ignition::math::Vector3d(0,0,0));
       }
   }
 }

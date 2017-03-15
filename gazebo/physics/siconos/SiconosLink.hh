@@ -172,6 +172,7 @@ namespace gazebo
       private: SiconosPhysicsPtr siconosPhysics;
 
       private: SP::SiconosVector force;
+      private: SP::SiconosVector torque;
       private: SP::SiconosVector weight;
     };
     /// \}

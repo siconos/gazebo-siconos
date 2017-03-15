@@ -131,7 +131,12 @@ void SiconosLink::Init()
       this->body = std11::make_shared<BodyDS>(q,v,mass);
 
       this->force = std11::make_shared<SiconosVector>(3);
-      this->body->setFExtPtr(force);
+      this->force->zero();
+      this->body->setFExtPtr(this->force);
+
+      this->torque = std11::make_shared<SiconosVector>(3);
+      this->torque->zero();
+      this->body->setMExtPtr(this->torque);
 
       this->body->setContactors(this->contactorSet);
   }
@@ -363,16 +368,8 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  ignition::math::Pose3d wPose = this->WorldPose();
-  GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
-  ignition::math::Vector3d offsetFromCoG = _q*_offset
-        - wPose.Rot()*this->inertial->CoG();
-  // Siconos TODO
-  // btVector3 vel = this->body->getVelocityInLocalPoint(
-  //     SiconosTypes::ConvertVector3(offsetFromCoG));
-
-  // return SiconosTypes::ConvertVector3(vel);
-  return ignition::math::Vector3d(0,0,0);
+  const SiconosVector& v( *this->body->velocity() );
+  return ignition::math::Vector3d(v(0),v(1),v(2));
 }
 
 //////////////////////////////////////////////////
@@ -400,11 +397,8 @@ ignition::math::Vector3d SiconosLink::WorldAngularVel() const
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  // Siconos TODO
-  // btVector3 vel = this->body->getAngularVelocity();
-
-  // return SiconosTypes::ConvertVector3(vel);
-  return ignition::math::Vector3d(0,0,0);
+  const SiconosVector& v( *this->body->velocity() );
+  return ignition::math::Vector3d(v(3),v(4),v(5));
 }
 
 //////////////////////////////////////////////////
@@ -422,44 +416,31 @@ ignition::math::Vector3d SiconosLink::WorldForce() const
   if (!this->body)
     return ignition::math::Vector3d(0, 0, 0);
 
-  // btVector3 btVec;
-
-  // Siconos TODO
-  // btVec = this->body->getTotalForce();
-
-  // return ignition::math::Vector3d(btVec.x(), btVec.y(), btVec.z());
-  return ignition::math::Vector3d(0,0,0);
+  return SiconosTypes::ConvertVector3(this->force);
 }
 
 //////////////////////////////////////////////////
-void SiconosLink::SetTorque(const ignition::math::Vector3d &/*_torque*/)
+void SiconosLink::SetTorque(const ignition::math::Vector3d &_torque)
 {
+  if(_torque.SquaredLength() > 0.001)
+    printf("SetTorque()\n");
   if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
-          << " does not exist, unable to SetAngularVel" << std::endl;
+          << " does not exist, unable to SetTorque" << std::endl;
     return;
   }
 
-  // Siconos TODO
-  // this->body->applyTorque(SiconosTypes::ConvertVector3(_torque));
+  SiconosTypes::ConvertVector3(_torque, this->torque);
 }
 
 //////////////////////////////////////////////////
 ignition::math::Vector3d SiconosLink::WorldTorque() const
 {
-  /*
-  if (!this->body)
-    return ignition::math::Vector3d(0, 0, 0);
-
-  btignition::math::Vector3d btVec;
-
-  // Siconos TODO
-  btVec = this->body->getTotalTorque();
-
-  return ignition::math::Vector3d(btVec.x(), btVec.y(), btVec.z());
-  */
-  return ignition::math::Vector3d();
+  if (this->body)
+    return SiconosTypes::ConvertVector3(this->torque);
+  else
+    return ignition::math::Vector3d(0,0,0);
 }
 
 //////////////////////////////////////////////////
@@ -582,15 +563,39 @@ void SiconosLink::AddLinkForce(const ignition::math::Vector3d &_force,
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddTorque(const ignition::math::Vector3d &/*_torque*/)
+void SiconosLink::AddTorque(const ignition::math::Vector3d &_torque)
 {
-  gzlog << "SiconosLink::AddTorque not yet implemented." << std::endl;
+  if (this->body)
+  {
+    auto torque = this->WorldCoGPose().Rot().RotateVector(_torque);
+    (*this->torque)(0) += torque.X();
+    (*this->torque)(1) += torque.Y();
+    (*this->torque)(2) += torque.Z();
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddTorque"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddRelativeTorque(const ignition::math::Vector3d &/*_torque*/)
+void SiconosLink::AddRelativeTorque(const ignition::math::Vector3d &_torque)
 {
-  gzlog << "SiconosLink::AddRelativeTorque not yet implemented." << std::endl;
+  if (this->body)
+  {
+    auto torque = this->WorldCoGPose().Rot().RotateVector(_torque);
+    (*this->torque)(0) += _torque.X();
+    (*this->torque)(1) += _torque.Y();
+    (*this->torque)(2) += _torque.Z();
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddRelativeTorque"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////

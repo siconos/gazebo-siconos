@@ -314,28 +314,29 @@ double SiconosHingeJoint::GetVelocity(unsigned int /*_index*/) const
 }
 
 //////////////////////////////////////////////////
-void SiconosHingeJoint::SetForceImpl(unsigned int /*_index*/, double /*_effort*/)
+void SiconosHingeJoint::SetForceImpl(unsigned int /*_index*/, double _effort)
 {
   if (this->siconosPivotJointR)
   {
-    // // z-axis of constraint frame
-    // btVector3 hingeAxisLocalA =
-    //   this->siconosHinge->getFrameOffsetA().getBasis().getColumn(2);
-    // btVector3 hingeAxisLocalB =
-    //   this->siconosHinge->getFrameOffsetB().getBasis().getColumn(2);
+    // Rotate pivot axis to world frame
+    ignition::math::Vector3d axis(
+      SiconosTypes::ConvertVector3(this->siconosPivotJointR->A()) );
 
-    // btVector3 hingeAxisWorldA =
-    //   this->siconosHinge->getRigidBodyA().getWorldTransform().getBasis() *
-    //   hingeAxisLocalA;
-    // btVector3 hingeAxisWorldB =
-    //   this->siconosHinge->getRigidBodyB().getWorldTransform().getBasis() *
-    //   hingeAxisLocalB;
+    if (this->parentLink) {
+      const ignition::math::Pose3d& pose = this->parentLink->WorldCoGPose();
+      axis = pose.Rot().RotateVector(axis);
+      this->parentLink->AddTorque(_effort * axis);
+    }
 
-    // btVector3 hingeTorqueA = _effort * hingeAxisWorldA;
-    // btVector3 hingeTorqueB = _effort * hingeAxisWorldB;
+    if (this->childLink && !this->parentLink) {
+      const ignition::math::Pose3d& pose = this->childLink->WorldCoGPose();
+      axis = pose.Rot().RotateVector(axis);
+      this->childLink->AddTorque(_effort * axis);
+    }
 
-    // this->siconosHinge->getRigidBodyA().applyTorque(hingeTorqueA);
-    // this->siconosHinge->getRigidBodyB().applyTorque(-hingeTorqueB);
+    else if (this->childLink) {
+      this->childLink->AddTorque(-_effort * axis);
+    }
   }
 }
 
