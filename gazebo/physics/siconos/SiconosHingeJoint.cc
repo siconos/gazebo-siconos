@@ -114,10 +114,10 @@ void SiconosHingeJoint::Init()
   if (siconosChildLink && siconosParentLink)
   {
     this->siconosPivotJointR = std11::make_shared<PivotJointR>(
-      ds1 = siconosChildLink->GetSiconosBodyDS(),
-      ds2 = siconosParentLink->GetSiconosBodyDS(),
-      SiconosTypes::ConvertVector3(pivotChild),
-      SiconosTypes::ConvertVector3(axisChild));
+      ds1 = siconosParentLink->GetSiconosBodyDS(),
+      ds2 = siconosChildLink->GetSiconosBodyDS(),
+      SiconosTypes::ConvertVector3(pivotParent),
+      SiconosTypes::ConvertVector3(axisParent));
   }
   // If only the child exists, then create a joint between the child
   // and the world.
@@ -234,26 +234,64 @@ void SiconosHingeJoint::SetAxis(unsigned int /*_index*/,
   */
 }
 
+/// Project v1 onto v2
+/// TODO: Move this to ignition-math?
+static
+ignition::math::Vector3d projection(const ignition::math::Vector3d& v1,
+                                    const ignition::math::Vector3d& v2)
+{
+  return v1.Dot(v2) / v2.SquaredLength() * v1;
+}
+
 //////////////////////////////////////////////////
 double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
 {
   double result = 0.0;
-//   if (this->siconosHinge)
-//   {
-// #ifdef LIBSICONOS_VERSION_GT_282
-//     btHingeAccumulatedAngleConstraint* hinge =
-//       static_cast<btHingeAccumulatedAngleConstraint*>(this->siconosHinge);
-//     if (hinge)
-//     {
-//       result = hinge->getAccumulatedHingeAngle();
-//     }
-//     else
-// #endif
-//     {
-//       result = this->siconosHinge->getHingeAngle();
-//     }
-//     result -= this->angleOffset;
-//   }
+
+  ignition::math::Pose3d pose1, pose2;
+  bool two = false;
+
+  if (this->siconosPivotJointR)
+  {
+    if (this->parentLink && this->childLink)
+    {
+      pose1 = this->parentLink->WorldCoGPose();
+      pose2 = this->childLink->WorldCoGPose();
+      two = true;
+    }
+    else if (this->parentLink)
+    {
+      pose1 = this->parentLink->WorldCoGPose();
+    }
+    else if (this->childLink)
+    {
+      pose1 = this->childLink->WorldCoGPose();
+    }
+    else
+      return 0.0;
+
+    ignition::math::Vector3d axis(
+      SiconosTypes::ConvertVector3(this->siconosPivotJointR->A()) );
+
+    // Rotate pivot axis to world frame
+    axis = pose1.Rot().RotateVector(axis);
+    ignition::math::Vector3d ortho = axis.Perpendicular();
+
+    // Calculate angle of the quaternion around a given axis
+    // TODO: Move this into ignition-math?
+    {
+      ignition::math::Vector3d trans = pose1.Rot().RotateVector(ortho);
+      ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
+      result = acos(ortho.Dot(flat));
+    }
+    if (two)
+    {
+      ignition::math::Vector3d trans = pose2.Rot().RotateVector(ortho);
+      ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
+      result -= acos(ortho.Dot(flat));
+    }
+  }
+
   return result;
 }
 
