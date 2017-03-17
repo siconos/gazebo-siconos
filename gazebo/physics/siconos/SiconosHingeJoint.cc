@@ -273,7 +273,7 @@ double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
     ignition::math::Vector3d axis(
       SiconosTypes::ConvertVector3(this->siconosPivotJointR->A()) );
 
-    // Rotate pivot axis to world frame
+    // Rotate pivot axis (in parent local frame) to world frame
     axis = pose1.Rot().RotateVector(axis);
     ignition::math::Vector3d ortho = axis.Perpendicular();
 
@@ -282,13 +282,23 @@ double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
     {
       ignition::math::Vector3d trans = pose1.Rot().RotateVector(ortho);
       ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
-      result = acos(ortho.Dot(flat));
+      flat.Normalize();
+      ignition::math::Vector3d ref = axis.Cross(flat);
+      double a = ortho.Dot(flat);
+      double dir = ref.Dot(ortho);
+      result = acos(a) * (dir < 0 ? 1 : -1);
     }
     if (two)
     {
       ignition::math::Vector3d trans = pose2.Rot().RotateVector(ortho);
       ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
-      result -= acos(ortho.Dot(flat));
+      flat.Normalize();
+      ignition::math::Vector3d ref = axis.Cross(flat);
+      double a = ortho.Dot(flat);
+      double dir = ref.Dot(ortho);
+      result -= acos(a) * (dir < 0 ? 1 : -1);
+      if (result < -M_PI) result += M_PI;
+      if (result >  M_PI) result -= M_PI;
     }
   }
 
@@ -306,10 +316,12 @@ double SiconosHingeJoint::GetVelocity(unsigned int /*_index*/) const
 {
   double result = 0;
   ignition::math::Vector3d globalAxis = this->GlobalAxis(0);
-  if (this->childLink)
-    result += globalAxis.Dot(this->childLink->WorldAngularVel());
   if (this->parentLink)
-    result -= globalAxis.Dot(this->parentLink->WorldAngularVel());
+    result = globalAxis.Dot(this->parentLink->WorldAngularVel());
+  if (this->parentLink && this->childLink)
+    result -= globalAxis.Dot(this->childLink->WorldAngularVel());
+  else if (this->childLink)
+    result = globalAxis.Dot(this->childLink->WorldAngularVel());
   return result;
 }
 
