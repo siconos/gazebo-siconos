@@ -285,6 +285,8 @@ double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
       flat.Normalize();
       ignition::math::Vector3d ref = axis.Cross(flat);
       double a = ortho.Dot(flat);
+      if (a >  0.99999) a =  0.99999;  // Avoid NaN for acos(1.0)
+      if (a < -0.99999) a = -0.99999;
       double dir = ref.Dot(ortho);
       result = acos(a) * (dir < 0 ? 1 : -1);
     }
@@ -295,6 +297,8 @@ double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
       flat.Normalize();
       ignition::math::Vector3d ref = axis.Cross(flat);
       double a = ortho.Dot(flat);
+      if (a >  0.99999) a =  0.99999;  // Avoid NaN for acos(1.0)
+      if (a < -0.99999) a = -0.99999;
       double dir = ref.Dot(ortho);
       result -= acos(a) * (dir < 0 ? 1 : -1);
       if (result < -M_PI) result += M_PI;
