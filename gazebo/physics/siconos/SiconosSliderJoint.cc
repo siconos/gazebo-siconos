@@ -117,9 +117,9 @@ void SiconosSliderJoint::Init()
   if (siconosChildLink && siconosParentLink)
   {
     this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-        ds1 = siconosChildLink->GetSiconosBodyDS(),
-        ds2 = siconosParentLink->GetSiconosBodyDS(),
-        SiconosTypes::ConvertVector3(axisChild));
+        ds1 = siconosParentLink->GetSiconosBodyDS(),
+        ds2 = siconosChildLink->GetSiconosBodyDS(),
+        SiconosTypes::ConvertVector3(axisParent));
   }
   // If only the child exists, then create a joint between the child
   // and the world.
@@ -198,10 +198,13 @@ double SiconosSliderJoint::GetVelocity(unsigned int /*_index*/) const
 {
   double result = 0;
   ignition::math::Vector3d globalAxis = this->GlobalAxis(0);
-  if (this->childLink)
-    result += globalAxis.Dot(this->childLink->WorldLinearVel());
   if (this->parentLink)
-    result -= globalAxis.Dot(this->parentLink->WorldLinearVel());
+    result = globalAxis.Dot(this->parentLink->WorldCoGLinearVel());
+  if (this->parentLink && this->childLink)
+    result -= globalAxis.Dot(this->childLink->WorldCoGLinearVel());
+  else if (this->childLink) {
+    result = globalAxis.Dot(this->childLink->WorldCoGLinearVel());
+  }
   return result;
 }
 
@@ -255,15 +258,15 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
 {
   if (this->siconosPrismaticJointR && _index==0)
   {
-    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->childLink));
-    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->parentLink));
+    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
+    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
 
     ignition::math::Vector3d axis(
       SiconosTypes::ConvertVector3(this->siconosPrismaticJointR->_axis0) );
 
     if (link0 && link1) {
-      link0->AddRelativeForce(axis * _effort);
-      link1->AddRelativeForce(axis * -_effort);
+      link0->AddRelativeForce(axis * _effort/2);
+      link1->AddRelativeForce(axis * -_effort/2);
     }
     else if (link0) {
       link0->AddRelativeForce(axis * _effort);
@@ -335,10 +338,16 @@ ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int /*_index*/)
 
   if (this->siconosPrismaticJointR)
   {
-    // Slider axis in child frame, rotated to match the child link pose
-    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->childLink));
-    result = this->childLink->WorldPose().Rot().RotateVector(
-      SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 ));
+    SiconosLinkPtr link;
+    if (this->parentLink) {
+      link = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    }
+    else if (this->childLink) {
+      link = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    }
+    if (link)
+      result = link->WorldCoGPose().Rot().RotateVector(
+        SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 ));
   }
 
   return result;
@@ -353,11 +362,34 @@ double SiconosSliderJoint::PositionImpl(unsigned int _index) const
     return 0.0;
   }
 
-  // Compute slider angle from gazebo's cached poses instead
-  ignition::math::Vector3d offset = this->WorldPose().Pos()
-                                    - this->ParentWorldPose().Pos();
-  ignition::math::Vector3d axis = this->GlobalAxis(_index);
-  return axis.Dot(offset);
+  SiconosLinkPtr link0, link1;
+  double result = 0.0;
+
+  if (this->siconosPrismaticJointR)
+  {
+    if (this->parentLink) {
+      link0 = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    }
+    if (this->parentLink && this->childLink) {
+      link1 = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    }
+    else if (this->childLink) {
+      link0 = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    }
+    if (link0) {
+      ignition::math::Vector3d offset;
+      if (link1)
+        offset = link0->WorldCoGPose().Pos() - link1->WorldCoGPose().Pos();
+      else
+        offset = link0->WorldCoGPose().Pos() - this->anchorPose.Pos();
+
+      ignition::math::Vector3d axis =
+        SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 );
+      result = link0->WorldCoGPose().Rot().RotateVector(axis).Dot(offset);
+    }
+  }
+
+  return result;
 }
 
 //////////////////////////////////////////////////

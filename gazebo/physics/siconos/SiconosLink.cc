@@ -326,10 +326,7 @@ ignition::math::Vector3d SiconosLink::WorldCoGLinearVel() const
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  // btVector3 vel = this->body->getLinearVelocity();
-
-  // return SiconosTypes::ConvertVector3(vel);
-  return ignition::math::Vector3d(0,0,0);
+  return SiconosTypes::ConvertVector3( this->body->velocity() );
 }
 
 //////////////////////////////////////////////////
