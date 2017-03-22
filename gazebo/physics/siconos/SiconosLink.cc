@@ -625,6 +625,12 @@ void SiconosLink::UpdatePoseFromBody()
 {
   if (this->body) {
     this->dirtyPose = SiconosTypes::ConvertPose(this->body->q());
+
+    ignition::math::Vector3d cog = this->dirtyPose.Rot().RotateVector(
+      this->inertial->CoG());
+
+    this->dirtyPose.Pos() -= cog;
+
     world->_AddDirty(this);
   }
 }
