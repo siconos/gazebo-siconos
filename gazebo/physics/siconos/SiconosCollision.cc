@@ -36,9 +36,9 @@ SiconosCollision::SiconosCollision(LinkPtr _parent)
 {
   this->SetName("Siconos_Collision");
   this->surface.reset(new SiconosSurfaceParams());
-  this->offset = std11::make_shared<SiconosVector>(7);
-  this->offset->zero();
-  (*this->offset)(3) = 1;
+  this->pose_offset = std11::make_shared<SiconosVector>(7);
+  this->pose_offset->zero();
+  (*this->pose_offset)(3) = 1;
 }
 
 //////////////////////////////////////////////////
@@ -62,9 +62,12 @@ void SiconosCollision::Load(sdf::ElementPtr _sdf)
 void SiconosCollision::OnPoseChange()
 {
   ignition::math::Pose3d pose = this->RelativePose();
-  SiconosLinkPtr bbody = boost::dynamic_pointer_cast<SiconosLink>(this->parent);
-
-  SiconosTypes::ConvertPoseToVector7(pose, this->offset);
+  if (this->base_offset)
+  {
+    ignition::math::Pose3d offset = SiconosTypes::ConvertPose(this->base_offset);
+    pose += offset;
+  }
+  SiconosTypes::ConvertPoseToVector7(pose, this->pose_offset);
 }
 
 //////////////////////////////////////////////////
@@ -137,7 +140,7 @@ void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
     this->siconosContactor->shape = _shape;
   else
     this->siconosContactor =
-      std11::make_shared<SiconosContactor>(_shape, this->offset);
+      std11::make_shared<SiconosContactor>(_shape, this->pose_offset);
 
   // btmath::Vector3 vec;
   // this->collisionShape->calculateLocalInertia(this->mass.GetAsDouble(), vec);
@@ -164,4 +167,18 @@ void SiconosCollision::SetCompoundShapeIndex(int /*_index*/)
 SiconosSurfaceParamsPtr SiconosCollision::GetSiconosSurface() const
 {
   return boost::dynamic_pointer_cast<SiconosSurfaceParams>(this->surface);
+}
+
+/////////////////////////////////////////////////
+void SiconosCollision::SetBaseTransform(SP::SiconosVector _offset)
+{
+  this->base_offset = _offset;
+  this->OnPoseChange();
+}
+
+/////////////////////////////////////////////////
+void SiconosCollision::SetBaseTransform(ignition::math::Pose3d _offset)
+{
+  this->base_offset = SiconosTypes::ConvertPose(_offset);
+  this->OnPoseChange();
 }

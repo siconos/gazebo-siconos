@@ -96,11 +96,23 @@ namespace gazebo
       /// \return Dynamically casted pointer to SiconosSurfaceParams.
       public: SiconosSurfaceParamsPtr GetSiconosSurface() const;
 
+      /// \brief Set the offset transform of this collision shape from
+      ///        the body position.
+      public: void SetBaseTransform(SP::SiconosVector _offset);
+
+      /// \brief Set the offset transform of this collision shape from
+      ///        the body position.
+      public: void SetBaseTransform(ignition::math::Pose3d _offset);
+
       /// \brief The Siconos contactor
       protected: SP::SiconosContactor siconosContactor;
 
-      /// \brief The Siconos contactor's offset (transform relative to body)
-      protected: SP::SiconosVector offset;
+      /// \brief The Siconos contactor's base offset (transform relative to body)
+      protected: SP::SiconosVector base_offset;
+
+      /// \brief The Siconos contactor's pose offset (transform
+      ///        relative to body position + base_offset)
+      protected: SP::SiconosVector pose_offset;
 
       /// \brief Category bits for collision detection
       private: unsigned int categoryBits;
