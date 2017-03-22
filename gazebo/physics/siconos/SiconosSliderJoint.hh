@@ -18,8 +18,6 @@
 #define _GAZEBO_SICONOSSLIDERJOINT_HH_
 
 #include <string>
-#include "gazebo/math/Angle.hh"
-#include "gazebo/math/Vector3.hh"
 #include "gazebo/physics/siconos/SiconosJoint.hh"
 #include "gazebo/physics/SliderJoint.hh"
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
