@@ -48,6 +48,7 @@
 #include "gazebo/physics/siconos/SiconosPlaneShape.hh"
 #include "gazebo/physics/siconos/SiconosSphereShape.hh"
 #include "gazebo/physics/siconos/SiconosBoxShape.hh"
+#include "gazebo/physics/siconos/SiconosCylinderShape.hh"
 #include "gazebo/physics/siconos/SiconosRayShape.hh"
 
 #include "gazebo/physics/siconos/SiconosHingeJoint.hh"
@@ -283,6 +284,8 @@ ShapePtr SiconosPhysics::CreateShape(const std::string &_type,
     shape.reset(new SiconosSphereShape(collision));
   else if (_type == "box")
     shape.reset(new SiconosBoxShape(collision));
+  else if (_type == "cylinder")
+    shape.reset(new SiconosCylinderShape(collision));
   else if (_type == "ray")
     if (_collision)
       shape.reset(new SiconosRayShape(_collision));

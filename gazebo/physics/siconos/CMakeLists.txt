@@ -30,8 +30,8 @@ set (headers
   # siconos_math_inc.h
   # SiconosBallJoint.hh
   SiconosBoxShape.hh
-  # SiconosCollision.hh
-  # SiconosCylinderShape.hh
+  SiconosCollision.hh
+  SiconosCylinderShape.hh
   SiconosFixedJoint.hh
   # SiconosHeightmapShape.hh
   # SiconosHinge2Joint.hh
