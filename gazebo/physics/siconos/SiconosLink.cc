@@ -130,6 +130,18 @@ void SiconosLink::Init()
       // initial state vectors
       this->body = std11::make_shared<BodyDS>(q,v,mass);
 
+      // give Siconos un-rotated inertia
+      if (this->inertial)
+      {
+        auto moi = this->inertial->MOI(
+          ignition::math::Pose3d(this->inertial->CoG(),
+                                 ignition::math::Quaterniond::Identity));
+        SP::SimpleMatrix inertia = SiconosTypes::ConvertMatrix3(moi);
+        this->body->setInertia(inertia);
+        this->body->setUseContactorInertia(false);
+      }
+
+      // Set up external force/torque vectors for this body
       this->force = std11::make_shared<SiconosVector>(3);
       this->force->zero();
       this->body->setFExtPtr(this->force);
@@ -138,6 +150,7 @@ void SiconosLink::Init()
       this->torque->zero();
       this->body->setMExtPtr(this->torque);
 
+      // Assign contactor shapes to this body
       this->body->setContactors(this->contactorSet);
   }
 

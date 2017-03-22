@@ -21,6 +21,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 #include <SiconosVector.hpp>
+#include <SimpleMatrix.hpp>
 
 /// \file
 /// \ingroup gazebo_physics
@@ -132,6 +133,25 @@ namespace gazebo
                 (*_v)(5) = _pose.Rot().Y();
                 (*_v)(6) = _pose.Rot().Z();
                 return _v;
+              }
+
+      /// \brief Convert an ignition Matrix3 to a new Siconos SimpleMatrix.
+      /// \param[in] _mat Ignition matrix of size 3x3.
+      /// \return SP::SimpleMatrix of size 3x3.
+      public: static SP::SimpleMatrix ConvertMatrix3(
+        const ignition::math::Matrix3d &_mat)
+              {
+                SP::SimpleMatrix m(std11::make_shared<SimpleMatrix>(3,3));
+                (*m)(0,0) = _mat(0,0);
+                (*m)(0,1) = _mat(0,1);
+                (*m)(0,2) = _mat(0,2);
+                (*m)(1,0) = _mat(1,0);
+                (*m)(1,1) = _mat(1,1);
+                (*m)(1,2) = _mat(1,2);
+                (*m)(2,0) = _mat(2,0);
+                (*m)(2,1) = _mat(2,1);
+                (*m)(2,2) = _mat(2,2);
+                return m;
               }
     };
   }
