@@ -162,7 +162,7 @@ void SiconosHingeJoint::Init()
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosPivotJointR->numberOfConstraints();
   this->interaction = std11::make_shared<Interaction>(
-    nc, std11::make_shared<EqualityConditionNSL>(nc), this->siconosPivotJointR);
+    std11::make_shared<EqualityConditionNSL>(nc), this->siconosPivotJointR);
 
   // Apply joint angle limits here.
   // TODO: velocity and effort limits.

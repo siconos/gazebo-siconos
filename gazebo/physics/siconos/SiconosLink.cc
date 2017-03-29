@@ -180,10 +180,6 @@ void SiconosLink::Init()
                            siconosWorld->GetSimulation()->nextTime(),
                            this->body, siconosWorld->GetOneStepIntegrator());
 
-    /* Initialize the DS at the current time */
-    this->body->initialize(siconosWorld->GetSimulation()->nextTime(),
-                           siconosWorld->GetOneStepIntegrator()->getSizeMem());
-
     /* Simulation partial re-initialization */
     siconosWorld->GetSimulation()->initialize(siconosWorld->GetModel(), false);
   }

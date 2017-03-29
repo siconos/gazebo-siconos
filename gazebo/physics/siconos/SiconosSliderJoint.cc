@@ -174,7 +174,7 @@ void SiconosSliderJoint::Init()
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosPrismaticJointR->numberOfConstraints();
   this->interaction = std11::make_shared<Interaction>(
-    nc, std11::make_shared<EqualityConditionNSL>(nc), this->siconosPrismaticJointR);
+    std11::make_shared<EqualityConditionNSL>(nc), this->siconosPrismaticJointR);
 
   // Add the joint to the NSDS
   GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
