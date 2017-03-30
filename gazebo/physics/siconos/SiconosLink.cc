@@ -311,7 +311,7 @@ void SiconosLink::SetEnabled(bool /*_enable*/) const
 }
 
 //////////////////////////////////////////////////
-void SiconosLink::SetLinearVel(const ignition::math::Vector3d &/*_vel*/)
+void SiconosLink::SetLinearVel(const ignition::math::Vector3d &_vel)
 {
   if (!this->body)
   {
@@ -321,7 +321,10 @@ void SiconosLink::SetLinearVel(const ignition::math::Vector3d &/*_vel*/)
   }
 
   // TODO Siconos
-  // this->body->setLinearVelocity(SiconosTypes::ConvertVector3(_vel));
+  (*this->body->velocity())(0) = _vel.X();
+  (*this->body->velocity())(1) = _vel.Y();
+  (*this->body->velocity())(2) = _vel.Z();
+  this->body->swapInMemory();
 }
 
 //////////////////////////////////////////////////
@@ -379,7 +382,7 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
 }
 
 //////////////////////////////////////////////////
-void SiconosLink::SetAngularVel(const ignition::math::Vector3d &/*_vel*/)
+void SiconosLink::SetAngularVel(const ignition::math::Vector3d &_vel)
 {
   if (!this->body)
   {
@@ -389,7 +392,10 @@ void SiconosLink::SetAngularVel(const ignition::math::Vector3d &/*_vel*/)
   }
 
   // Siconos TODO
-  // this->body->setAngularVelocity(SiconosTypes::ConvertVector3(_vel));
+  (*this->body->velocity())(3) = _vel.X();
+  (*this->body->velocity())(4) = _vel.Y();
+  (*this->body->velocity())(5) = _vel.Z();
+  this->body->swapInMemory();
 }
 
 //////////////////////////////////////////////////
