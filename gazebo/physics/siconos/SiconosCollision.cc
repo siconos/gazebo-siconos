@@ -62,10 +62,12 @@ void SiconosCollision::Load(sdf::ElementPtr _sdf)
 void SiconosCollision::OnPoseChange()
 {
   ignition::math::Pose3d pose = this->RelativePose();
+  ignition::math::Vector3d cog = this->GetLink()->GetInertial()->CoG();
+  pose.Pos() -= cog;
   if (this->base_offset)
   {
     ignition::math::Pose3d offset = SiconosTypes::ConvertPose(this->base_offset);
-    pose += offset;
+    pose = (offset + pose);
   }
   SiconosTypes::ConvertPoseToVector7(pose, this->pose_offset);
 }
