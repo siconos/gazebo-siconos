@@ -50,6 +50,14 @@ namespace gazebo
                 assert(_v->size() >= 3);
                 return ignition::math::Vector3d((*_v)(0), (*_v)(1), (*_v)(2));
               }
+      /// \brief Convert a SiconosVector to a gazebo Vector3.
+      /// \param[in] _bt SiconosVector of size 3.
+      /// \return Gazebo Vector3.
+      public: static ignition::math::Vector3d ConvertVector3(const SiconosVector& _v)
+              {
+                assert(_v.size() >= 3);
+                return ignition::math::Vector3d(_v(0), _v(1), _v(2));
+              }
 
       /// \brief Convert a gazebo Vector3 to a SiconosVector.
       /// \param[in] _vec Gazebo Vector3.
@@ -99,6 +107,20 @@ namespace gazebo
                 pose.Rot().X() = (*_v)(4);
                 pose.Rot().Y() = (*_v)(5);
                 pose.Rot().Z() = (*_v)(6);
+                return pose;
+              }
+
+      /// \brief Convert a SiconosVector(7) to a gazebo pose.
+      /// \param[in] _v SiconosVector of size 7.
+      /// \return Gazebo pose.
+      public: static ignition::math::Pose3d ConvertPose(const SiconosVector& _v)
+              {
+                ignition::math::Pose3d pose;
+                pose.Pos() = ConvertVector3(_v);
+                pose.Rot().W() = _v(3);
+                pose.Rot().X() = _v(4);
+                pose.Rot().Y() = _v(5);
+                pose.Rot().Z() = _v(6);
                 return pose;
               }
 

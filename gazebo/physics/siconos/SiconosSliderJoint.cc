@@ -117,25 +117,28 @@ void SiconosSliderJoint::Init()
   if (siconosChildLink && siconosParentLink)
   {
     this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
+        SiconosTypes::ConvertVector3(axisParent),
+        false /* not absoluteRef */,
         ds1 = siconosParentLink->GetSiconosBodyDS(),
-        ds2 = siconosChildLink->GetSiconosBodyDS(),
-        SiconosTypes::ConvertVector3(axisParent));
+        ds2 = siconosChildLink->GetSiconosBodyDS());
   }
   // If only the child exists, then create a joint between the child
   // and the world.
   else if (siconosChildLink)
   {
     this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-        ds1 = siconosChildLink->GetSiconosBodyDS(),
-        SiconosTypes::ConvertVector3(axisChild));
+      SiconosTypes::ConvertVector3(axisChild),
+      false /* not absoluteRef */,
+      ds1 = siconosChildLink->GetSiconosBodyDS());
   }
   // If only the parent exists, then create a joint between the parent
   // and the world.
   else if (siconosParentLink)
   {
     this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-        ds1 = siconosParentLink->GetSiconosBodyDS(),
-        SiconosTypes::ConvertVector3(axisParent));
+      SiconosTypes::ConvertVector3(axisParent),
+      false /* not absoluteRef */,
+      ds1 = siconosParentLink->GetSiconosBodyDS());
   }
   // Throw an error if no links are given.
   else
@@ -194,16 +197,21 @@ void SiconosSliderJoint::Init()
 }
 
 //////////////////////////////////////////////////
-double SiconosSliderJoint::GetVelocity(unsigned int /*_index*/) const
+double SiconosSliderJoint::GetVelocity(unsigned int _index) const
 {
-  double result = 0;
-  ignition::math::Vector3d globalAxis = this->GlobalAxis(0);
-  if (this->parentLink)
-    result = globalAxis.Dot(this->parentLink->WorldCoGLinearVel());
-  if (this->parentLink && this->childLink)
-    result -= globalAxis.Dot(this->childLink->WorldCoGLinearVel());
-  else if (this->childLink) {
-    result = globalAxis.Dot(this->childLink->WorldCoGLinearVel());
+  double result = 0.0;
+
+  if (this->siconosPrismaticJointR
+      && _index < this->siconosPrismaticJointR->numberOfDoF())
+  {
+    ignition::math::Vector3d globalAxis = this->GlobalAxis(_index);
+    if (this->parentLink)
+      result = globalAxis.Dot(this->parentLink->WorldCoGLinearVel());
+    if (this->parentLink && this->childLink)
+      result -= globalAxis.Dot(this->childLink->WorldCoGLinearVel());
+    else if (this->childLink) {
+      result = globalAxis.Dot(this->childLink->WorldCoGLinearVel());
+    }
   }
   return result;
 }
@@ -256,13 +264,20 @@ void SiconosSliderJoint::SetDamping(unsigned int /*index*/,
 //////////////////////////////////////////////////
 void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
 {
-  if (this->siconosPrismaticJointR && _index==0)
+  if (this->siconosPrismaticJointR
+      && _index < this->siconosPrismaticJointR->numberOfDoF())
   {
     SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
     SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
 
-    ignition::math::Vector3d axis(
-      SiconosTypes::ConvertVector3(this->siconosPrismaticJointR->_axis0) );
+    BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
+    unsigned int i = 0;
+    if (link0) bv.setVectorPtr(i++, link0->GetSiconosBodyDS()->q());
+    if (link1) bv.setVectorPtr(i++, link1->GetSiconosBodyDS()->q());
+
+    SiconosVector v(3);
+    this->siconosPrismaticJointR->normalDoF(v, bv, _index, false);
+    ignition::math::Vector3d axis(SiconosTypes::ConvertVector3(v));
 
     if (link0 && link1) {
       link0->AddRelativeForce(axis * _effort/2);
@@ -332,12 +347,15 @@ double SiconosSliderJoint::LowerLimit(unsigned int /*_index*/) const
 }
 
 //////////////////////////////////////////////////
-ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int /*_index*/) const
+ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int _index) const
 {
   ignition::math::Vector3d result = this->initialWorldAxis;
 
   if (this->siconosPrismaticJointR)
   {
+    GZ_ASSERT(_index < this->siconosPrismaticJointR->numberOfDoF(),
+              "SiconosSliderJoint::GlobalAxis(): axis index too large.");
+
     SiconosLinkPtr link;
     if (this->parentLink) {
       link = boost::static_pointer_cast<SiconosLink>(this->parentLink);
@@ -345,9 +363,14 @@ ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int /*_index*/)
     else if (this->childLink) {
       link = boost::static_pointer_cast<SiconosLink>(this->childLink);
     }
-    if (link)
-      result = link->WorldCoGPose().Rot().RotateVector(
-        SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 ));
+    if (link) {
+      BlockVector bv(1, 7);
+      bv.setVectorPtr(0, link->GetSiconosBodyDS()->q());
+
+      SiconosVector v(3);
+      this->siconosPrismaticJointR->normalDoF(v, bv, _index, false);
+      result = SiconosTypes::ConvertVector3(v);
+    }
   }
 
   return result;
@@ -376,17 +399,17 @@ double SiconosSliderJoint::PositionImpl(unsigned int _index) const
     else if (this->childLink) {
       link0 = boost::static_pointer_cast<SiconosLink>(this->childLink);
     }
-    if (link0) {
-      ignition::math::Vector3d offset;
-      if (link1)
-        offset = link0->WorldCoGPose().Pos() - link1->WorldCoGPose().Pos();
-      else
-        offset = link0->WorldCoGPose().Pos() - this->anchorPose.Pos();
+    else
+      return 0.0;
 
-      ignition::math::Vector3d axis =
-        SiconosTypes::ConvertVector3( this->siconosPrismaticJointR->_axis0 );
-      result = link0->WorldCoGPose().Rot().RotateVector(axis).Dot(offset);
-    }
+    BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
+    unsigned int i = 0;
+    if (link0) bv.setVectorPtr(i++, link0->GetSiconosBodyDS()->q());
+    if (link1) bv.setVectorPtr(i++, link1->GetSiconosBodyDS()->q());
+
+    SiconosVector y(1);
+    this->siconosPrismaticJointR->computehDoF(0.0, bv, y, _index);
+    result = y(0);
   }
 
   return result;

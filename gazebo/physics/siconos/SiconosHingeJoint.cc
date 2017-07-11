@@ -114,30 +114,31 @@ void SiconosHingeJoint::Init()
   if (siconosChildLink && siconosParentLink)
   {
     this->siconosPivotJointR = std11::make_shared<PivotJointR>(
-      ds1 = siconosParentLink->GetSiconosBodyDS(),
-      ds2 = siconosChildLink->GetSiconosBodyDS(),
       SiconosTypes::ConvertVector3(pivotParent),
-      SiconosTypes::ConvertVector3(axisParent));
+      SiconosTypes::ConvertVector3(axisParent),
+      false /* not absoluteRef */,
+      ds1 = siconosParentLink->GetSiconosBodyDS(),
+      ds2 = siconosChildLink->GetSiconosBodyDS());
   }
   // If only the child exists, then create a joint between the child
   // and the world.
   else if (siconosChildLink)
   {
     this->siconosPivotJointR = std11::make_shared<PivotJointR>(
-      ds1 = siconosChildLink->GetSiconosBodyDS(),
       SiconosTypes::ConvertVector3(pivotChild),
       SiconosTypes::ConvertVector3(axisChild),
-      false /* not absoluteRef */);
+      false /* not absoluteRef */,
+      ds1 = siconosChildLink->GetSiconosBodyDS());
   }
   // If only the parent exists, then create a joint between the parent
   // and the world.
   else if (siconosParentLink)
   {
     this->siconosPivotJointR = std11::make_shared<PivotJointR>(
-      ds1 = siconosParentLink->GetSiconosBodyDS(),
       SiconosTypes::ConvertVector3(pivotParent),
       SiconosTypes::ConvertVector3(axisParent),
-      false /* not absoluteRef */);
+      false /* not absoluteRef */,
+      ds1 = siconosParentLink->GetSiconosBodyDS());
   }
   // Throw an error if no links are given.
   else
@@ -234,76 +235,35 @@ void SiconosHingeJoint::SetAxis(unsigned int /*_index*/,
   */
 }
 
-/// Project v1 onto v2
-/// TODO: Move this to ignition-math?
-static
-ignition::math::Vector3d projection(const ignition::math::Vector3d& v1,
-                                    const ignition::math::Vector3d& v2)
-{
-  return v1.Dot(v2) / v2.SquaredLength() * v1;
-}
-
 //////////////////////////////////////////////////
-double SiconosHingeJoint::PositionImpl(const unsigned int /*_index*/) const
+double SiconosHingeJoint::PositionImpl(const unsigned int _index) const
 {
   double result = 0.0;
+  SiconosLinkPtr link0, link1;
 
-  ignition::math::Pose3d pose1, pose2;
-  bool two = false;
-
-  if (this->siconosPivotJointR)
+  if (this->siconosPivotJointR
+      && _index < this->siconosPivotJointR->numberOfDoF())
   {
-    if (this->parentLink && this->childLink)
-    {
-      pose1 = this->parentLink->WorldCoGPose();
-      pose2 = this->childLink->WorldCoGPose();
-      two = true;
+    if (this->parentLink) {
+      link0 = boost::static_pointer_cast<SiconosLink>(this->parentLink);
     }
-    else if (this->parentLink)
-    {
-      pose1 = this->parentLink->WorldCoGPose();
+    if (this->parentLink && this->childLink) {
+      link1 = boost::static_pointer_cast<SiconosLink>(this->childLink);
     }
-    else if (this->childLink)
-    {
-      pose1 = this->childLink->WorldCoGPose();
+    else if (this->childLink) {
+      link0 = boost::static_pointer_cast<SiconosLink>(this->childLink);
     }
     else
       return 0.0;
 
-    ignition::math::Vector3d axis(
-      SiconosTypes::ConvertVector3(this->siconosPivotJointR->A()) );
+    BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
+    unsigned int i = 0;
+    if (link0) bv.setVectorPtr(i++, link0->GetSiconosBodyDS()->q());
+    if (link1) bv.setVectorPtr(i++, link1->GetSiconosBodyDS()->q());
 
-    // Rotate pivot axis (in parent local frame) to world frame
-    axis = pose1.Rot().RotateVector(axis);
-    ignition::math::Vector3d ortho = axis.Perpendicular();
-
-    // Calculate angle of the quaternion around a given axis
-    // TODO: Move this into ignition-math?
-    {
-      ignition::math::Vector3d trans = pose1.Rot().RotateVector(ortho);
-      ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
-      flat.Normalize();
-      ignition::math::Vector3d ref = axis.Cross(flat);
-      double a = ortho.Dot(flat);
-      if (a >  0.99999) a =  0.99999;  // Avoid NaN for acos(1.0)
-      if (a < -0.99999) a = -0.99999;
-      double dir = ref.Dot(ortho);
-      result = acos(a) * (dir < 0 ? 1 : -1);
-    }
-    if (two)
-    {
-      ignition::math::Vector3d trans = pose2.Rot().RotateVector(ortho);
-      ignition::math::Vector3d flat = trans - (trans.Dot(axis) * axis);
-      flat.Normalize();
-      ignition::math::Vector3d ref = axis.Cross(flat);
-      double a = ortho.Dot(flat);
-      if (a >  0.99999) a =  0.99999;  // Avoid NaN for acos(1.0)
-      if (a < -0.99999) a = -0.99999;
-      double dir = ref.Dot(ortho);
-      result -= acos(a) * (dir < 0 ? 1 : -1);
-      if (result < -M_PI) result += M_PI;
-      if (result >  M_PI) result -= M_PI;
-    }
+    SiconosVector y(1);
+    this->siconosPivotJointR->computehDoF(0.0, bv, y, _index);
+    result = y(0);
   }
 
   return result;
@@ -316,37 +276,47 @@ void SiconosHingeJoint::SetVelocity(unsigned int _index, double _angle)
 }
 
 //////////////////////////////////////////////////
-double SiconosHingeJoint::GetVelocity(unsigned int /*_index*/) const
+double SiconosHingeJoint::GetVelocity(unsigned int _index) const
 {
-  double result = 0;
-  ignition::math::Vector3d globalAxis = this->GlobalAxis(0);
-  if (this->parentLink)
-    result = globalAxis.Dot(this->parentLink->WorldAngularVel());
-  if (this->parentLink && this->childLink)
-    result -= globalAxis.Dot(this->childLink->WorldAngularVel());
-  else if (this->childLink)
-    result = globalAxis.Dot(this->childLink->WorldAngularVel());
+  double result = 0.0;
+
+  if (this->siconosPivotJointR
+      && _index < this->siconosPivotJointR->numberOfDoF())
+  {
+    ignition::math::Vector3d globalAxis = this->GlobalAxis(_index);
+    if (this->parentLink)
+      result = globalAxis.Dot(this->parentLink->WorldAngularVel());
+    if (this->parentLink && this->childLink)
+      result -= globalAxis.Dot(this->childLink->WorldAngularVel());
+    else if (this->childLink)
+      result = globalAxis.Dot(this->childLink->WorldAngularVel());
+  }
   return result;
 }
 
 //////////////////////////////////////////////////
-void SiconosHingeJoint::SetForceImpl(unsigned int /*_index*/, double _effort)
+void SiconosHingeJoint::SetForceImpl(unsigned int _index, double _effort)
 {
-  if (this->siconosPivotJointR)
+  if (this->siconosPivotJointR
+      && _index < this->siconosPivotJointR->numberOfDoF())
   {
-    // Rotate pivot axis to world frame
-    ignition::math::Vector3d axis(
-      SiconosTypes::ConvertVector3(this->siconosPivotJointR->A()) );
+    SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
+    SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
+
+    BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
+    unsigned int i = 0;
+    if (link0) bv.setVectorPtr(i++, link0->GetSiconosBodyDS()->q());
+    if (link1) bv.setVectorPtr(i++, link1->GetSiconosBodyDS()->q());
+
+    SiconosVector v(3);
+    this->siconosPivotJointR->normalDoF(v, bv, _index, true);
+    ignition::math::Vector3d axis(SiconosTypes::ConvertVector3(v));
 
     if (this->parentLink) {
-      const ignition::math::Pose3d& pose = this->parentLink->WorldCoGPose();
-      axis = pose.Rot().RotateVector(axis);
       this->parentLink->AddTorque(_effort * axis);
     }
 
     if (this->childLink && !this->parentLink) {
-      const ignition::math::Pose3d& pose = this->childLink->WorldCoGPose();
-      axis = pose.Rot().RotateVector(axis);
       this->childLink->AddTorque(_effort * axis);
     }
 
@@ -417,12 +387,35 @@ double SiconosHingeJoint::LowerLimit(const unsigned int /*_index*/) const
 }
 
 //////////////////////////////////////////////////
-ignition::math::Vector3d SiconosHingeJoint::GlobalAxis(unsigned int /*_index*/) const
+ignition::math::Vector3d SiconosHingeJoint::GlobalAxis(unsigned int _index) const
 {
   ignition::math::Vector3d result = this->initialWorldAxis;
 
   if (this->siconosPivotJointR)
   {
+    GZ_ASSERT(_index < this->siconosPivotJointR->numberOfDoF(),
+              "SiconosHingeJoint::GlobalAxis(): axis index too large.");
+
+    SiconosLinkPtr link;
+    if (this->parentLink) {
+      link = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    }
+    else if (this->childLink) {
+      link = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    }
+    if (link) {
+      BlockVector bv(1, 7);
+      bv.setVectorPtr(0, link->GetSiconosBodyDS()->q());
+
+      SiconosVector v(3);
+      this->siconosPivotJointR->normalDoF(v, bv, _index, false);
+      result = SiconosTypes::ConvertVector3(v);
+    }
+  }
+
+  if (this->siconosPivotJointR)
+  {
+
     // I have not verified the following math, though I based it on internal
     // siconos code at line 250 of btHingeConstraint.cpp
     // btVector3 vec =

@@ -170,18 +170,10 @@ void SiconosLink::Init()
     siconosWorld->GetModel()->nonSmoothDynamicalSystem()
       ->insertDynamicalSystem(this->body);
 
-    // Add DS to the integrator
-    siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-      ->topology()->setOSI(this->body, siconosWorld->GetOneStepIntegrator());
-
-    // Initialize DS worksapce
-    siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-      ->topology()->initDS(siconosWorld->GetModel(),
-                           siconosWorld->GetSimulation()->nextTime(),
-                           this->body, siconosWorld->GetOneStepIntegrator());
-
-    /* Simulation partial re-initialization */
-    siconosWorld->GetSimulation()->initialize(siconosWorld->GetModel(), false);
+    /* Prepare the simulation integrator for the new DS */
+    siconosWorld->GetSimulation()->prepareIntegratorForDS(
+      siconosWorld->GetOneStepIntegrator(), this->body,
+      siconosWorld->GetModel(), siconosWorld->GetSimulation()->nextTime());
   }
   else {
     // Add contactor to collision world
@@ -377,8 +369,7 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  const SiconosVector& v( *this->body->velocity() );
-  return ignition::math::Vector3d(v(0),v(1),v(2));
+  return SiconosTypes::ConvertVector3(this->body->linearVelocity(true));
 }
 
 //////////////////////////////////////////////////
@@ -409,8 +400,7 @@ ignition::math::Vector3d SiconosLink::WorldAngularVel() const
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  const SiconosVector& v( *this->body->velocity() );
-  return ignition::math::Vector3d(v(3),v(4),v(5));
+  return SiconosTypes::ConvertVector3(this->body->angularVelocity(true));
 }
 
 //////////////////////////////////////////////////
