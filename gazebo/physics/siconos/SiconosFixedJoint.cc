@@ -26,6 +26,12 @@
 
 #include <boost/make_shared.hpp>
 
+#include "SiconosWorld.hh"
+#include <siconos/FixedJointR.hpp>
+#include <siconos/NonSmoothDynamicalSystem.hpp>
+#include <siconos/Model.hpp>
+#include <siconos/BodyDS.hpp>
+
 using namespace gazebo;
 using namespace physics;
 
@@ -59,72 +65,28 @@ void SiconosFixedJoint::Init()
   SiconosLinkPtr siconosParentLink =
       boost::static_pointer_cast<SiconosLink>(this->parentLink);
 
-  // Get axis unit vector (expressed in world frame).
-  ignition::math::Vector3d axis = ignition::math::Vector3d::UnitZ;
-
-  // Local variables used to compute pivots and axes in body-fixed frames
-  // for the parent and child links.
-  ignition::math::Vector3d pivotParent, pivotChild, axisParent, axisChild;
-  ignition::math::Pose3d pose;
-
-  // Initialize pivots to anchorPos, which is expressed in the
-  // world coordinate frame.
-  pivotParent = this->anchorPos;
-  pivotChild = this->anchorPos;
-
-  // Check if parentLink exists. If not, the parent will be the world.
-  if (this->parentLink)
-  {
-    // Compute relative pose between joint anchor and CoG of parent link.
-    pose = this->parentLink->WorldCoGPose();
-    // Subtract CoG position from anchor position, both in world frame.
-    pivotParent -= pose.Pos();
-    // Rotate pivot offset and axis into body-fixed frame of parent.
-    pivotParent = pose.Rot().RotateVectorReverse(pivotParent);
-    axisParent = pose.Rot().RotateVectorReverse(axis);
-    axisParent = axisParent.Normalize();
-  }
-  // Check if childLink exists. If not, the child will be the world.
-  if (this->childLink)
-  {
-    // Compute relative pose between joint anchor and CoG of child link.
-    pose = this->childLink->WorldCoGPose();
-    // Subtract CoG position from anchor position, both in world frame.
-    pivotChild -= pose.Pos();
-    // Rotate pivot offset and axis into body-fixed frame of child.
-    pivotChild = pose.Rot().RotateVectorReverse(pivotChild);
-    axisChild = pose.Rot().RotateVectorReverse(axis);
-    axisChild = axisChild.Normalize();
-  }
+  SP::BodyDS ds1, ds2;
 
   // If both links exist, then create a joint between the two links.
   if (siconosChildLink && siconosParentLink)
   {
-    // this->siconosFixed = new btHingeConstraint(
-    //     *(siconosChildLink->GetSiconosLink()),
-    //     *(siconosParentLink->GetSiconosLink()),
-    //     SiconosTypes::ConvertVector3(pivotChild),
-    //     SiconosTypes::ConvertVector3(pivotParent),
-    //     SiconosTypes::ConvertVector3(axisChild),
-    //     SiconosTypes::ConvertVector3(axisParent));
+    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
+        ds1 = siconosChildLink->GetSiconosBodyDS(),
+        ds2 = siconosParentLink->GetSiconosBodyDS());
   }
   // If only the child exists, then create a joint between the child
   // and the world.
   else if (siconosChildLink)
   {
-    // this->siconosFixed = new btHingeConstraint(
-    //     *(siconosChildLink->GetSiconosLink()),
-    //     SiconosTypes::ConvertVector3(pivotChild),
-    //     SiconosTypes::ConvertVector3(axisChild));
+    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
+        ds1 = siconosChildLink->GetSiconosBodyDS());
   }
   // If only the parent exists, then create a joint between the parent
   // and the world.
   else if (siconosParentLink)
   {
-    // this->siconosFixed = new btHingeConstraint(
-    //     *(siconosParentLink->GetSiconosLink()),
-    //     SiconosTypes::ConvertVector3(pivotParent),
-    //     SiconosTypes::ConvertVector3(axisParent));
+    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
+        ds1 = siconosParentLink->GetSiconosBodyDS());
   }
   // Throw an error if no links are given.
   else
@@ -142,17 +104,20 @@ void SiconosFixedJoint::Init()
   // Give parent class SiconosJoint a pointer to this constraint.
   this->relation = this->siconosFixedJointR;
 
-  //this->siconosFixed->setLimit(0.0, 0.0);
+  // Create a Siconos Interacton with an EqualityConditionNSL
+  int nc = this->siconosFixedJointR->numberOfConstraints();
+  this->interaction = std11::make_shared<Interaction>(
+    std11::make_shared<EqualityConditionNSL>(nc), this->siconosFixedJointR);
 
-  // Add the joint to the world
+  // Add the joint to the NSDS
   GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
-  //this->siconosWorld->addConstraint(this->siconosFixed, true);
+  this->siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+    ->link(this->interaction, ds1, ds2);
 
-  // Allows access to impulse
-  //this->siconosFixed->enableFeedback(true);
-
-  // Setup Joint force and torque feedback
-  this->SetupJointFeedback();
+  // Initialize Interaction states for the Simulation
+  this->siconosWorld->GetSimulation()->initializeInteraction(
+    this->siconosWorld->GetSimulation()->nextTime(),
+    this->interaction);
 }
 
 //////////////////////////////////////////////////

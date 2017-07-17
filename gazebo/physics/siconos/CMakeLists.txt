@@ -1,7 +1,7 @@
 include (${gazebo_cmake_dir}/GazeboUtils.cmake)
 
 set (sources ${sources}
-  # SiconosBallJoint.cc
+  siconos/SiconosBallJoint.cc
   siconos/SiconosCollision.cc
   siconos/SiconosFixedJoint.cc
   # SiconosHeightmapShape.cc
@@ -28,7 +28,7 @@ set (sources ${sources}
 set (headers
   siconos_inc.h
   # siconos_math_inc.h
-  # SiconosBallJoint.hh
+  SiconosBallJoint.hh
   SiconosBoxShape.hh
   SiconosCollision.hh
   SiconosCylinderShape.hh

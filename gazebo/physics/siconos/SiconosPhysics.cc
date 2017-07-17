@@ -52,6 +52,7 @@
 #include "gazebo/physics/siconos/SiconosHingeJoint.hh"
 #include "gazebo/physics/siconos/SiconosSliderJoint.hh"
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
+#include "gazebo/physics/siconos/SiconosBallJoint.hh"
 
 using namespace gazebo;
 using namespace physics;
@@ -309,6 +310,8 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
     joint.reset(new SiconosSliderJoint(_parent, this->siconosWorld));
   else if (_type == "fixed")
     joint.reset(new SiconosFixedJoint(_parent, this->siconosWorld));
+  else if (_type == "ball")
+    joint.reset(new SiconosBallJoint(_parent, this->siconosWorld));
   else
     gzthrow("Unable to create joint of type[" << _type << "]");
 

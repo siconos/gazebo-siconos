@@ -80,7 +80,7 @@ namespace gazebo
 
       /// \brief Pointer to siconos fixed constraint implementation
       // TODO: FixedJointR does not yet exist in Siconos!
-      private: SP::Relation siconosFixedJointR;
+      private: SP::FixedJointR siconosFixedJointR;
     };
     /// \}
   }
