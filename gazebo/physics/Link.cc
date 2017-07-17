@@ -136,6 +136,11 @@ void Link::Load(sdf::ElementPtr _sdf)
   {
     this->inertial->Load(this->sdf->GetElement("inertial"));
   }
+  else
+  {
+    this->inertial->SetMass(0.0);
+    this->inertial->SetInertiaMatrix(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  }
 
 #ifdef HAVE_OPENAL
   if (_sdf->HasElement("audio_source"))
@@ -332,9 +337,6 @@ void Link::ResetPhysicsStates()
 {
   this->SetAngularVel(ignition::math::Vector3d::Zero);
   this->SetLinearVel(ignition::math::Vector3d::Zero);
-  // deprecated commented
-  // this->SetAngularAccel(ignition::math::Vector3d::Zero);
-  // this->SetLinearAccel(ignition::math::Vector3d::Zero);
   this->SetForce(ignition::math::Vector3d::Zero);
   this->SetTorque(ignition::math::Vector3d::Zero);
 }
@@ -642,6 +644,8 @@ CollisionPtr Link::GetCollision(unsigned int _index) const
 //////////////////////////////////////////////////
 void Link::SetLinearAccel(const ignition::math::Vector3d &_accel)
 {
+  gzwarn << "Link::SetLinearAccel() is deprecated and has "
+         << "no effect. Use Link::SetForce() instead.\n";
   this->SetEnabled(true);
   this->linearAccel = _accel;
 }
@@ -649,6 +653,8 @@ void Link::SetLinearAccel(const ignition::math::Vector3d &_accel)
 //////////////////////////////////////////////////
 void Link::SetAngularAccel(const ignition::math::Vector3d &_accel)
 {
+  gzwarn << "Link::SetAngularAccel() is deprecated and has "
+         << "no effect. Use Link::SetTorque() instead.\n";
   this->SetEnabled(true);
   this->angularAccel = _accel;
 }
@@ -1079,9 +1085,6 @@ void Link::SetState(const LinkState &_state)
   this->SetWorldPose(_state.Pose());
   this->SetLinearVel(_state.Velocity().Pos());
   this->SetAngularVel(_state.Velocity().Rot().Euler());
-  // deprecated commented
-  // this->SetLinearAccel(_state.Acceleration().Pos());
-  // this->SetAngularAccel(_state.Acceleration().Rot().Euler());
   this->SetForce(_state.Wrench().Pos());
   this->SetTorque(_state.Wrench().Rot().Euler());
 
