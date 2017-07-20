@@ -1,0 +1,12 @@
+# Site settings
+title: Gazebo with Siconos
+email: stephen.sinclair@inria.cl
+description: > # this means to ignore newlines until "baseurl:"
+  This site documents the repository Gazebo-Siconos repository, that is
+  a fork of the upstream Gazebo repository on bitbucket, extended to
+  feature an experimental physics back-end powered by Siconos.
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "http://siconos.github.com/gazebo-siconos" # the base hostname & protocol for your site
+
+# Build settings
+markdown: kramdown
