@@ -10,3 +10,5 @@ url: "http://siconos.github.com/gazebo-siconos" # the base hostname & protocol f
 
 # Build settings
 markdown: kramdown
+
+theme: jekyll-theme-slate
