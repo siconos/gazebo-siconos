@@ -111,3 +111,5 @@ RUN \
   git checkout siconos_integration && \
   cd ~/gazebo && mkdir bld && cd bld && cmake .. && make -j5 && make install && \
   cd ~ && rm -rf gazebo
+
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
