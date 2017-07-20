@@ -1,9 +1,10 @@
 # About
 
-This site documents the repository Gazebo-Siconos repository, a fork
-of the upstream [Gazebo](http://gazebosim.org/) repository on
-bitbucket, extended to feature an experimental physics back-end
-powered by Siconos.
+This site documents
+the [Gazebo-Siconos](http://github.com/siconos/gazebo-siconos)
+repository, a fork of the upstream [Gazebo](http://gazebosim.org/)
+repository on bitbucket, extended to feature an experimental physics
+back-end powered by Siconos.
 
 [Gazebo](http://gazebosim.org/) is a simulation interface for
 robotics, featuring integration with ROS, and supports multiple
