@@ -20,7 +20,23 @@ This is optional.  If you wish to build it yourself instead of relying
 on the uploaded pre-built image, you may do so using a Dockerfile and
 the `docker build` command.
 
-TODO, provide Dockerfile.
+* [View the Dockerfile](https://github.com/siconos/gazebo-siconos/blob/gh-pages/docker-run/Dockerfile)
+
+* [Download the Dockerfile]({{site.baseurl}}/docker-run/Dockerfile)
+
+Once downloaded, build the image using the command,
+
+    # cd <path containing Dockerfile>
+    # docker build -t gazebo-siconos .
+
+It may take an hour or two, as it installs several Ubuntu "dev"
+packages, downloads and builds Gazebo and Siconos pre-requisites, then
+builds Siconos and Gazebo.  You should have around 10 GB of hard drive
+space available.  This image erases the source files before cleaning
+up so as to save space, so the final image should be around 5 GB.
+
+Removing the `rm` commands allows to use this environment for
+development.
 
 ## Docker run command
 
