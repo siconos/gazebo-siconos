@@ -20,7 +20,7 @@ USER root
 # First install packages needed for running, to be a common layer
 # between rebuilds
 RUN \
-  apt-get update -y && apt-get install -y --force-yes \
+  apt-get update -y && apt-get install -y \
     lp-solve libhdf5-10 libbulletcollision2.83.6 \
     libbulletdynamics2.83.6 libbulletfileloader2.83.6 \
     liblinearmath2.83.6 libgl1-mesa-glx libglu1-mesa libglapi-mesa \
@@ -36,7 +36,7 @@ RUN \
 # Now install packages needed for building:
 # build, install, and uninstall them all in one step.
 RUN \
-  apt-get update -y && apt-get install -y --force-yes \
+  apt-get update -y && apt-get install -y \
     git-core wget make cmake libboost-all-dev libgmp-dev swig3.0 \
     libcppunit-dev gcc gfortran g++ libblas-dev liblapack-dev \
     libatlas-base-dev libatlas-dev lp-solve liblpsolve55-dev \
