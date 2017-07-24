@@ -59,7 +59,6 @@ all models work yet.
 
 One that does work is "Simple Arm", which we recommend testing first,
 as it demonstrates a simple mechanism with two joint types.
-![Gazebo running simple\_arm.world using Siconos physics]({{site.url}}/assets/gazebo_siconos_simplearm.png)
 
 You may also compare against other physics backends by changing
 `siconos` for `ode`, `bullet`, or `simbody`.  Currently the `dart`
