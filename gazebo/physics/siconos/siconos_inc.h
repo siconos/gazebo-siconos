@@ -22,6 +22,7 @@
 #undef HAVE_BULLET
 
 #include <BulletSiconosFwd.hpp>
+#include <MechanicsFwd.hpp>
 #include <SiconosKernel.hpp>
 
 #endif

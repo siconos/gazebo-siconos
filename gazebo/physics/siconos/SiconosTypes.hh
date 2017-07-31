@@ -18,10 +18,13 @@
 #ifndef _SICONOSTYPES_HH
 #define _SICONOSTYPES_HH
 
+#include <ignition/math/Vector3.hh>
+#include <ignition/math/Pose3.hh>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
-#include <SiconosVector.hpp>
-#include <SimpleMatrix.hpp>
+#include <siconos/SiconosVector.hpp>
+#include <siconos/SimpleMatrix.hpp>
 
 /// \file
 /// \ingroup gazebo_physics

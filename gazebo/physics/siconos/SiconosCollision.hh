@@ -30,6 +30,7 @@
 #include "gazebo/util/system.hh"
 */
 
+#include "gazebo/physics/siconos/siconos_inc.h"
 #include "gazebo/physics/siconos/SiconosTypes.hh"
 #include "gazebo/physics/PhysicsTypes.hh"
 #include "gazebo/physics/Collision.hh"
