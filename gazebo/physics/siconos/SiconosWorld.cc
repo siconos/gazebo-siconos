@@ -30,7 +30,13 @@
 #include "gazebo/physics/Link.hh"
 #include "gazebo/physics/World.hh"
 #include "gazebo/physics/PhysicsEngine.hh"
+
+#include "gazebo/physics/siconos/SiconosTypes.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
+#include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
+#include "gazebo/physics/siconos/SiconosPhysics.hh"
+
+DEFINE_SPTR(GazeboCollisionManager)
 
 struct SiconosWorldImpl
 {
@@ -51,19 +57,78 @@ struct SiconosWorldImpl
   SP::OneStepNSProblem osnspb;
 
   /// \brief The Siconos broadphase collision manager
-  SP::SiconosBulletCollisionManager manager;
+  SP::GazeboCollisionManager manager;
 
   /// \brief The Siconos TimeStepping handler for this simulation
   SP::TimeStepping simulation;
 
   /// \brief Gazebo SiconosPhysics physics engine
-  gazebo::physics::PhysicsEngine *physics;
+  gazebo::physics::SiconosPhysics *physics;
 
   /// \brief Store timestep so we can check if it changed
   double maxStepSize;
 };
 
-SiconosWorld::SiconosWorld(gazebo::physics::PhysicsEngine *physics)
+class GazeboCollisionManager : public SiconosBulletCollisionManager
+{
+public:
+  GazeboCollisionManager(const SiconosBulletOptions &options,
+                         std::shared_ptr<SiconosWorldImpl> _impl)
+    : SiconosBulletCollisionManager(options), impl(_impl) {}
+
+  virtual SP::NonSmoothLaw nonSmoothLaw(long unsigned int collision_group1,
+                                        long unsigned int collision_group2);
+
+private:
+  std::shared_ptr<SiconosWorldImpl> impl;
+};
+
+SP::NonSmoothLaw GazeboCollisionManager::nonSmoothLaw(
+  long unsigned int collision_group1,
+  long unsigned int collision_group2)
+{
+  // Return an existing NSL if it has already been created
+
+  SP::NonSmoothLaw nsl =
+    SiconosBulletCollisionManager::nonSmoothLaw(collision_group1, collision_group2);
+  if (nsl) return nsl;
+
+  // Create NSL on-demand based on combined group surface properties.
+  // We combine them using similar rules (std::min) as the ODE physics
+  // engine, see ODEPhysics::Collide().
+
+  using namespace gazebo::physics;
+  SiconosSurfaceParamsPtr surface1
+    = this->impl->physics->GetCollisionGroupSurfaceParams(collision_group1);
+  SiconosSurfaceParamsPtr surface2
+    = this->impl->physics->GetCollisionGroupSurfaceParams(collision_group2);
+
+  // Default friction mu = 1.0 is very high, but taken from
+  // FrictionPyramid constructor.
+
+  double mu = 1.0;
+  if (surface1->FrictionPyramid() && surface2->FrictionPyramid())
+    mu = std::min(surface1->FrictionPyramid()->MuPrimary(),
+                  surface2->FrictionPyramid()->MuPrimary());
+  else if (surface1->FrictionPyramid())
+    mu = surface1->FrictionPyramid()->MuPrimary();
+  else if (surface2->FrictionPyramid())
+    mu = surface2->FrictionPyramid()->MuPrimary();
+
+  double restitution = std::min(surface1->normal_restitution,
+                                surface2->normal_restitution);
+
+  // Note, in case investigating why nothing bounces: Since std::min()
+  //   is used here, and the default restitution_coefficient is zero,
+  //   by default nothing will bounce if it is not specified in the
+  //   SDF, which is the case for the ground_plane model!
+
+  nsl = std11::make_shared<NewtonImpactFrictionNSL>(restitution, 0, mu, 3);
+  this->insertNonSmoothLaw(nsl, collision_group1, collision_group2);
+  return nsl;
+}
+
+SiconosWorld::SiconosWorld(gazebo::physics::SiconosPhysics *physics)
   : impl(new SiconosWorldImpl())
 {
     this->impl->gravity.resize(3);
@@ -124,12 +189,7 @@ void SiconosWorld::setup()
     // -- The collision manager adds or removes interactions using
     // -- Bullet-based contact detection.  Some options are available.
     SiconosBulletOptions options;
-    this->impl->manager.reset(new SiconosBulletCollisionManager(options));
-
-    // -- insert a default non smooth law for contactors id 0
-    // TODO handle friction properly
-    this->impl->manager->insertNonSmoothLaw(
-      SP::NewtonImpactFrictionNSL(new NewtonImpactFrictionNSL(0.8, 0., 0.1, 3)), 0, 0);
+    this->impl->manager.reset(new GazeboCollisionManager(options, this->impl));
 
     // -- MoreauJeanOSI Time Stepping for body mechanics
     this->impl->simulation.reset(new TimeStepping(this->impl->timedisc));

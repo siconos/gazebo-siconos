@@ -28,6 +28,9 @@ namespace gazebo
 {
   namespace physics
   {
+    class SiconosSurfaceParams;
+    typedef boost::shared_ptr<SiconosSurfaceParams> SiconosSurfaceParamsPtr;
+
     /// \addtogroup gazebo_physics
     /// \{
 
@@ -51,10 +54,18 @@ namespace gazebo
       public: virtual void ProcessMsg(const msgs::Surface &_msg);
 
       // Documentation inherited.
-      public: virtual FrictionPyramidPtr GetFrictionPyramid() const;
+      public: virtual FrictionPyramidPtr FrictionPyramid() const;
+
+      // \brief Make a copy of these surface parameters and the
+      //        attached friction pyramid.
+      public: SiconosSurfaceParamsPtr Copy() const;
 
       /// \brief Friction pyramid parameters (mu1, mu2).
       private: FrictionPyramidPtr frictionPyramid;
+
+      /// \brief normal-direction restitution coefficient [0,1], with
+      ///        0 being inelastic, and 1 being perfectly elastic.
+      public: double normal_restitution;
     };
     /// \}
   }

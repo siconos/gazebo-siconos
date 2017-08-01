@@ -18,6 +18,7 @@
 #define _GAZEBO_SICONOSWORLD_HH
 
 #include <gazebo/physics/PhysicsTypes.hh>
+#include <gazebo/physics/siconos/SiconosPhysics.hh>
 
 #include "siconos_inc.h"
 
@@ -28,7 +29,7 @@ struct SiconosWorldImpl;
 class SiconosWorld
 {
   /// \brief Constructor
-  public: SiconosWorld(gazebo::physics::PhysicsEngine*);
+  public: SiconosWorld(gazebo::physics::SiconosPhysics*);
 
   /// \brief Destructor
   public: ~SiconosWorld();
@@ -58,7 +59,7 @@ class SiconosWorld
   public: SP::TimeStepping GetSimulation() const;
 
   /// \brief Private implementation data
-  private: std::unique_ptr<SiconosWorldImpl> impl;
+  private: std::shared_ptr<SiconosWorldImpl> impl;
 };
 
 #endif

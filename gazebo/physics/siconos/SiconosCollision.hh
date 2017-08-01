@@ -97,6 +97,10 @@ namespace gazebo
       /// \return Dynamically casted pointer to SiconosSurfaceParams.
       public: SiconosSurfaceParamsPtr GetSiconosSurface() const;
 
+      /// \brief Update collision group assigned according to surface parameters.
+      /// \return Collision group number.
+      public: unsigned int UpdateCollisionGroup();
+
       /// \brief Set the offset transform of this collision shape from
       ///        the body position.
       public: void SetBaseTransform(SP::SiconosVector _offset);

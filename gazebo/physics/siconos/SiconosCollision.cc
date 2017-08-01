@@ -21,6 +21,9 @@
 #include "gazebo/physics/siconos/SiconosLink.hh"
 #include "gazebo/physics/siconos/SiconosCollision.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
+#include "gazebo/physics/siconos/SiconosPhysics.hh"
+#include "gazebo/physics/Model.hh"
+#include "gazebo/physics/World.hh"
 
 #include "SiconosTypes.hh"
 
@@ -39,6 +42,9 @@ SiconosCollision::SiconosCollision(LinkPtr _parent)
   this->pose_offset = std11::make_shared<SiconosVector>(7);
   this->pose_offset->zero();
   (*this->pose_offset)(3) = 1;
+
+  this->siconosContactor =
+    std11::make_shared<SiconosContactor>(SP::SiconosShape(), this->pose_offset);
 }
 
 //////////////////////////////////////////////////
@@ -56,6 +62,8 @@ void SiconosCollision::Load(sdf::ElementPtr _sdf)
     this->SetCategoryBits(GZ_FIXED_COLLIDE);
     this->SetCollideBits(~GZ_FIXED_COLLIDE);
   }
+
+  UpdateCollisionGroup();
 }
 
 //////////////////////////////////////////////////
@@ -138,11 +146,7 @@ void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
                                          bool _placeable)
 {
   Collision::SetCollision(_placeable);
-  if (this->siconosContactor)
-    this->siconosContactor->shape = _shape;
-  else
-    this->siconosContactor =
-      std11::make_shared<SiconosContactor>(_shape, this->pose_offset);
+  this->siconosContactor->shape = _shape;
 
   // btmath::Vector3 vec;
   // this->collisionShape->calculateLocalInertia(this->mass.GetAsDouble(), vec);
@@ -184,3 +188,17 @@ void SiconosCollision::SetBaseTransform(ignition::math::Pose3d _offset)
   this->base_offset = SiconosTypes::ConvertPose(_offset);
   this->OnPoseChange();
 }
+
+/////////////////////////////////////////////////
+unsigned int SiconosCollision::UpdateCollisionGroup()
+{
+  SiconosPhysicsPtr physics = boost::static_pointer_cast<SiconosPhysics>(
+    this->GetWorld()->Physics() );
+
+  SiconosSurfaceParamsPtr surface = boost::static_pointer_cast<SiconosSurfaceParams>(
+    this->surface );
+
+  // This must be updated if SurfaceParams change, done in SiconosLink::UpdateSurface.
+  this->siconosContactor->collision_group = physics->GetCollisionGroup(surface);
+}
+

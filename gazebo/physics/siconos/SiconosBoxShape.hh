@@ -80,20 +80,20 @@ namespace gazebo
 
                 /// Siconos requires the full extents of the box
                 SP::SiconosContactor c(bParent->GetSiconosContactor());
-                if (!c)
+                if (c->shape)
+                {
+                  SP::SiconosBox box(boost::static_pointer_cast<SiconosBox>(c->shape));
+                  box->setDimensions(size.X(), size.Y(), size.Z());
+                  box->setInsideMargin(std::min(std::min(size.X(), size.Y()),
+                                                size.Z())*0.1);
+                }
+                else
                 {
                   this->initialSize = size;
                   SP::SiconosBox box(new SiconosBox(size.X(), size.Y(), size.Z()));
                   box->setInsideMargin(std::min(std::min(size.X(), size.Y()),
                                                 size.Z())*0.1);
                   bParent->SetCollisionShape(box);
-                }
-                else
-                {
-                  SP::SiconosBox box(boost::static_pointer_cast<SiconosBox>(c->shape));
-                  box->setDimensions(size.X(), size.Y(), size.Z());
-                  box->setInsideMargin(std::min(std::min(size.X(), size.Y()),
-                                                size.Z())*0.1);
                 }
               }
 

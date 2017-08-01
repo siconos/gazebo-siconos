@@ -44,6 +44,8 @@ namespace gazebo
     class Entity;
     class XMLConfigNode;
     class Mass;
+    class SiconosSurfaceParams;
+    typedef boost::shared_ptr<SiconosSurfaceParams> SiconosSurfaceParamsPtr;
 
     /// \ingroup gazebo_physics
     /// \addtogroup gazebo_physics_siconos Siconos Physics
@@ -128,6 +130,15 @@ namespace gazebo
 
       /// \brief The type of the solver.
       private: std::string solverType;
+
+      /// \brief Look-up or add a collision group based on surface properties
+      public: long unsigned int GetCollisionGroup(SiconosSurfaceParamsPtr);
+
+      /// \brief Look-up surface properties for a collision group
+      public: SiconosSurfaceParamsPtr GetCollisionGroupSurfaceParams(long unsigned int);
+
+      /// \brief Look-up table for surface properties based on collision groups
+      private: std::vector< SiconosSurfaceParamsPtr > collisionGroups;
 
     /// \}
     };

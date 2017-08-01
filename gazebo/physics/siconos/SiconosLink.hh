@@ -161,6 +161,9 @@ namespace gazebo
       // Documentation inherited.
       public: virtual void UpdateMass();
 
+      // Documentation inherited.
+      public: virtual void UpdateSurface();
+
       /// \brief Pointer to siconos compound dynamical system, which
       ///        is a container for other child dynamical systems.
       private: SP::SiconosContactorSet contactorSet;

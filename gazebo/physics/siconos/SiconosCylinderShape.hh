@@ -81,7 +81,15 @@ namespace gazebo
 
                 /// Siconos requires the full extents of the box
                 SP::SiconosContactor c(bParent->GetSiconosContactor());
-                if (!c)
+                if (c->shape)
+                {
+                  SP::SiconosCylinder cyl(
+                    boost::static_pointer_cast<SiconosCylinder>(c->shape));
+                  cyl->setRadius(_radius);
+                  cyl->setLength(_length);
+                  cyl->setInsideMargin(std::min(_radius*2, _length)*0.1);
+                }
+                else
                 {
                   SP::SiconosCylinder cyl(new SiconosCylinder(_radius, _length));
                   cyl->setInsideMargin(std::min(_radius*2, _length)*0.1);
@@ -94,14 +102,6 @@ namespace gazebo
                   offset->setValue(3, 0.70710678);
                   offset->setValue(4, 0.70710678);
                   bParent->SetBaseTransform(offset);
-                }
-                else
-                {
-                  SP::SiconosCylinder cyl(
-                    boost::static_pointer_cast<SiconosCylinder>(c->shape));
-                  cyl->setRadius(_radius);
-                  cyl->setLength(_length);
-                  cyl->setInsideMargin(std::min(_radius*2, _length)*0.1);
                 }
               }
     };

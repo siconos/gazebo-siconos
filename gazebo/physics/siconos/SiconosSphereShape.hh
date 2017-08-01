@@ -69,20 +69,20 @@ namespace gazebo
                     this->collisionParent);
 
                 SP::SiconosContactor c(bParent->GetSiconosContactor());
-                if (!c)
+                if (c->shape)
                 {
-                  this->initialSize.X() = _radius;
-                  this->initialSize.Y() = _radius;
-                  this->initialSize.Z() = _radius;
-                  SP::SiconosSphere sphere(new SiconosSphere(_radius));
+                  SP::SiconosSphere sphere(
+                    boost::static_pointer_cast<SiconosSphere>(c->shape));
+                  sphere->setRadius(_radius);
                   sphere->setInsideMargin(_radius/2);
                   bParent->SetCollisionShape(sphere, true);
                 }
                 else
                 {
-                  SP::SiconosSphere sphere(
-                    boost::static_pointer_cast<SiconosSphere>(c->shape));
-                  sphere->setRadius(_radius);
+                  this->initialSize.X() = _radius;
+                  this->initialSize.Y() = _radius;
+                  this->initialSize.Z() = _radius;
+                  SP::SiconosSphere sphere(new SiconosSphere(_radius));
                   sphere->setInsideMargin(_radius/2);
                   bParent->SetCollisionShape(sphere, true);
                 }

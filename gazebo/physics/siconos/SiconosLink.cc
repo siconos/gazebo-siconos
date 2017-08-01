@@ -76,8 +76,6 @@ void SiconosLink::Init()
   double mass = this->inertial->Mass();
   ignition::math::Vector3d cogVec = this->inertial->CoG();
 
-  /// \todo FIXME:  Friction Parameters
-
   for (Base_V::iterator iter = this->children.begin();
        iter != this->children.end(); ++iter)
   {
@@ -90,26 +88,6 @@ void SiconosLink::Init()
         this->contactorSet->append(c);
       } else
         GZ_ASSERT(c, "Contactor is invalid");
-
-      /* Siconos TODO
-      SurfaceParamsPtr surface = collision->GetSurface();
-      GZ_ASSERT(surface, "Surface pointer for is invalid");
-      FrictionPyramidPtr friction = surface->GetFrictionPyramid();
-      GZ_ASSERT(friction, "Friction pointer is invalid");
-
-      hackMu1 = friction->GetMuPrimary();
-      hackMu2 = friction->GetMuSecondary();
-      // gzerr << "link[" << this->GetName()
-      //       << "] mu[" << hackMu1
-      //       << "] mu2[" << hackMu2 << "]\n";
-
-      math::Pose relativePose = collision->GetRelativePose();
-      relativePose.pos -= cogVec;
-      // if (!this->compoundShape)
-      //   this->compoundShape = new btCompoundShape();
-      // dynamic_cast<btCompoundShape *>(this->compoundShape)->addChildShape(
-      //     SiconosTypes::ConvertPose(relativePose), shape);
-      */
     }
   }
 
@@ -624,5 +602,23 @@ void SiconosLink::UpdatePoseFromBody()
     this->dirtyPose.Pos() -= cog;
 
     world->_AddDirty(this);
+  }
+}
+
+//////////////////////////////////////////////////
+void SiconosLink::UpdateSurface()
+{
+  // Update collision group for all collisions, since we don't know if
+  // any have changed.
+
+  for (Base_V::iterator iter = this->children.begin();
+       iter != this->children.end(); ++iter)
+  {
+    if ((*iter)->HasType(Base::COLLISION))
+    {
+      SiconosCollisionPtr collision;
+      collision = boost::static_pointer_cast<SiconosCollision>(*iter);
+      collision->UpdateCollisionGroup();
+    }
   }
 }

@@ -55,6 +55,8 @@
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
 #include "gazebo/physics/siconos/SiconosBallJoint.hh"
 
+#include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
+
 using namespace gazebo;
 using namespace physics;
 
@@ -326,6 +328,56 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
 void SiconosPhysics::SetGravity(const ignition::math::Vector3d &_gravity)
 {
   this->siconosWorld->SetGravity(_gravity.X(), _gravity.Y(), _gravity.Z());
+}
+
+/// \brief Look-up or add a collision group based on surface properties
+long unsigned int SiconosPhysics::GetCollisionGroup(SiconosSurfaceParamsPtr surface)
+{
+  FrictionPyramidPtr friction = surface->FrictionPyramid();
+
+  // TODO: how is restitution stored in SurfaceParams?
+  double restitution = surface->normal_restitution;
+  double mu1 = friction ? friction->MuPrimary() : 0.0;
+
+  // Collision groups are the index into a list of relevant
+  // parameters.  This look-up happens any time surface parameters are
+  // changed that affect the non-smooth law, ie. friction and normal
+  // restitution coefficients.  NewtonImpactFrictionNSL also supports
+  // tangent restitution but it is not used in Gazebo for now.
+  for ( std::vector<SiconosSurfaceParamsPtr>::size_type i = 0;
+        i < this->collisionGroups.size(); i++ )
+  {
+    SiconosSurfaceParamsPtr surface2 = this->collisionGroups[i];
+    FrictionPyramidPtr friction2 = surface2->FrictionPyramid();
+
+    // Either both have no FrictionPyramid, or FrictionPyramid
+    // MuPrimary() must match.
+    bool frictionMatch = ((friction && friction2
+                           && (std::abs(friction2->MuPrimary() - mu1)
+                               < std::numeric_limits<double>::epsilon()))
+                          || (!friction && !friction2));
+
+    // Also check that restitution (bounce) matches
+    if (frictionMatch && (std::abs(surface2->normal_restitution - restitution)
+                          < std::numeric_limits<double>::epsilon()))
+    {
+      return i;
+    }
+  }
+
+  // Must copy the surface params, because they can change by ProcessMsg.
+  this->collisionGroups.push_back( surface->Copy() );
+  return this->collisionGroups.size()-1;
+}
+
+/// \brief Look-up surface properties for a collision group
+SiconosSurfaceParamsPtr
+SiconosPhysics::GetCollisionGroupSurfaceParams(long unsigned int group)
+{
+  if (group < collisionGroups.size())
+    return collisionGroups[group];
+  else
+    return nullptr;
 }
 
 /// \brief Debug print out of the physic engine state.
