@@ -83,10 +83,10 @@ void SiconosMeshShape::Init()
 
   // Copy the vertex data (float -> double, apply scaling)
   SP::SiconosMatrix siconos_vertices(
-    std11::make_shared< SimpleMatrix >(numVertices, 3));
+    std11::make_shared< SimpleMatrix >(3, numVertices));
   for (unsigned int i=0; i<numVertices; i++)
     for (unsigned int j=0; j<3; j++)
-      (*siconos_vertices)(i,j) = vertices[i*3+j] * scale[j];
+      (*siconos_vertices)(j,i) = vertices[i*3+j] * scale[j];
 
   delete [] vertices;
   delete [] indices;
