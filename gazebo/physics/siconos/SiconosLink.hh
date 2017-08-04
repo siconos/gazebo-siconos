@@ -164,6 +164,9 @@ namespace gazebo
       // Documentation inherited.
       public: virtual void UpdateSurface();
 
+      /// \brief Get the SiconosLink associated with a Siconos BodyDS.
+      public: static SiconosLinkWeakPtr GetLinkForBody(const SP::BodyDS&);
+
       /// \brief Pointer to siconos compound dynamical system, which
       ///        is a container for other child dynamical systems.
       private: SP::SiconosContactorSet contactorSet;

@@ -12,7 +12,7 @@ set (sources ${sources}
   # SiconosMesh.cc
   siconos/SiconosMeshShape.cc
   # SiconosMotionState.cc
-  # SiconosMultiRayShape.cc
+  siconos/SiconosMultiRayShape.cc
   siconos/SiconosPhysics.cc
   # SiconosPolylineShape.cc
   siconos/SiconosRayShape.cc
@@ -41,7 +41,7 @@ set (headers
   # SiconosMesh.hh
   SiconosMeshShape.hh
   # SiconosMotionState.hh
-  # SiconosMultiRayShape.hh
+  SiconosMultiRayShape.hh
   SiconosPhysics.hh
   SiconosPlaneShape.hh
   # SiconosPolylineShape.hh

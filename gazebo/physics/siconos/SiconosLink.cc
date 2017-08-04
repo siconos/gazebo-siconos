@@ -37,6 +37,20 @@
 using namespace gazebo;
 using namespace physics;
 
+namespace gazebo { namespace physics {
+// A private class to attach a weak_ptr back to the SiconosLink for sensors.
+class GzBodyDS : public BodyDS
+{
+protected:
+  GzBodyDS() : BodyDS() {};
+public:
+  GzBodyDS(SP::SiconosVector position, SP::SiconosVector velocity,
+           double mass, SP::SimpleMatrix inertia = SP::SimpleMatrix())
+    : BodyDS(position, velocity, mass, inertia) {}
+  SiconosLinkWeakPtr link;
+};
+}}
+
 //////////////////////////////////////////////////
 SiconosLink::SiconosLink(EntityPtr _parent)
     : Link(_parent)
@@ -63,10 +77,6 @@ void SiconosLink::Load(sdf::ElementPtr _sdf)
 //////////////////////////////////////////////////
 void SiconosLink::Init()
 {
-  // Set the initial pose of the body
-  // this->motionState.reset(new SiconosMotionState(
-  //   boost::dynamic_pointer_cast<Link>(shared_from_this())));
-
   Link::Init();
 
   GZ_ASSERT(this->sdf != NULL, "Unable to initialize link, SDF is NULL");
@@ -106,7 +116,13 @@ void SiconosLink::Init()
   {
       // Otherwise, create the dynamic system with given inertia and
       // initial state vectors
-      this->body = std11::make_shared<BodyDS>(q,v,mass);
+      std11::shared_ptr<GzBodyDS> gzbody;
+      this->body = gzbody = std11::make_shared<GzBodyDS>(q,v,mass);
+
+      // We need a weak pointer back to the Link for sensors to find
+      // it based on collision world queries.
+      LinkPtr self = this->GetModel()->GetLinkById(this->GetId());
+      gzbody->link = boost::static_pointer_cast<SiconosLink>(self);
 
       // give Siconos un-rotated inertia
       if (this->inertial)
@@ -621,4 +637,14 @@ void SiconosLink::UpdateSurface()
       collision->UpdateCollisionGroup();
     }
   }
+}
+
+//////////////////////////////////////////////////
+SiconosLinkWeakPtr SiconosLink::GetLinkForBody(const SP::BodyDS& ds)
+{
+  // This function exists to avoid exposing the private GzBodyDS
+  // class defined above.
+  GZ_ASSERT(std11::dynamic_pointer_cast<GzBodyDS>(ds), "BodyDS was not a GzBodyDS!");
+  std11::shared_ptr<GzBodyDS> gzbody = std11::static_pointer_cast<GzBodyDS>(ds);
+  return gzbody->link;
 }

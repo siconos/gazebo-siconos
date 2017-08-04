@@ -19,6 +19,7 @@
 
 #include <gazebo/physics/PhysicsTypes.hh>
 #include <gazebo/physics/siconos/SiconosPhysics.hh>
+#include <gazebo/physics/siconos/SiconosTypes.hh>
 
 #include "siconos_inc.h"
 

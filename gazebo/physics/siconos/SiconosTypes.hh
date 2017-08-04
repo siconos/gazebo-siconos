@@ -20,9 +20,13 @@
 
 #include <ignition/math/Vector3.hh>
 #include <ignition/math/Pose3.hh>
+#include "gazebo/util/system.hh"
 
 #include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
 #include <boost/make_shared.hpp>
+
+#include "siconos_inc.h"
 #include <siconos/SiconosVector.hpp>
 #include <siconos/SimpleMatrix.hpp>
 
@@ -38,11 +42,14 @@ namespace gazebo
     class SiconosLink;
     class SiconosPhysics;
     class SiconosSurfaceParams;
+    class SiconosRayShape;
 
     typedef boost::shared_ptr<SiconosCollision> SiconosCollisionPtr;
     typedef boost::shared_ptr<SiconosLink> SiconosLinkPtr;
+    typedef boost::weak_ptr<SiconosLink> SiconosLinkWeakPtr;
     typedef boost::shared_ptr<SiconosPhysics> SiconosPhysicsPtr;
     typedef boost::shared_ptr<SiconosSurfaceParams> SiconosSurfaceParamsPtr;
+    typedef boost::shared_ptr<SiconosRayShape> SiconosRayShapePtr;
 
     class GZ_PHYSICS_VISIBLE SiconosTypes {
       /// \brief Convert a SiconosVector to a gazebo Vector3.

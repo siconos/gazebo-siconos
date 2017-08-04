@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2015 Open Source Robotics Foundation
+ * Copyright (C) 2012 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,23 @@
  * limitations under the License.
  *
 */
+/* Desc: A ray
+ * Author: Nate Koenig
+ * Date: 24 May 2009
+ */
 
 #include "gazebo/common/Assert.hh"
 
 #include "gazebo/physics/World.hh"
-#include "gazebo/physics/siconos/SiconosLink.hh"
-#include "gazebo/physics/siconos/SiconosPhysics.hh"
 #include "gazebo/physics/siconos/SiconosTypes.hh"
+#include "gazebo/physics/siconos/SiconosPhysics.hh"
+#include "gazebo/physics/siconos/SiconosWorld.hh"
+#include "gazebo/physics/siconos/SiconosLink.hh"
 #include "gazebo/physics/siconos/SiconosCollision.hh"
 #include "gazebo/physics/siconos/SiconosRayShape.hh"
+
+#include "siconos/SiconosCollisionQueryResult.hpp"
+#include "siconos/SiconosCollisionManager.hpp"
 
 using namespace gazebo;
 using namespace physics;
@@ -54,6 +62,9 @@ SiconosRayShape::~SiconosRayShape()
 //////////////////////////////////////////////////
 void SiconosRayShape::Update()
 {
+  if (!this->physicsEngine)
+    return;
+
   if (this->collisionParent)
   {
     SiconosCollisionPtr collision =
@@ -69,33 +80,30 @@ void SiconosRayShape::Update()
           this->relativeEndPos);
   }
 
-  // btVector3 start(this->globalStartPos.X(), this->globalStartPos.Y(),
-  //     this->globalStartPos.Z());
-  // btVector3 end(this->globalEndPos.X(), this->globalEndPos.Y(),
-  //     this->globalEndPos.Z());
-
-  // btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-  // rayCallback.m_collisionFilterGroup = GZ_SENSOR_COLLIDE;
-  // rayCallback.m_collisionFilterMask = ~GZ_SENSOR_COLLIDE;
+  SiconosVector startPoint({this->globalStartPos.X(),
+                            this->globalStartPos.Y(),
+                            this->globalStartPos.Z()});
+  SiconosVector endPoint({this->globalEndPos.X(),
+                          this->globalEndPos.Y(),
+                          this->globalEndPos.Z()});
 
   boost::recursive_mutex::scoped_lock lock(
       *this->physicsEngine->GetPhysicsUpdateMutex());
 
-  // this->physicsEngine->GetDynamicsWorld()->rayTest(
-  //     start, end, rayCallback);
+  auto result =
+    this->physicsEngine->GetSiconosWorld()->GetManager()->lineIntersectionQuery(
+      startPoint, endPoint, true, false);
 
-  // if (rayCallback.hasHit())
-  // {
-  //   math::Vector3 result(rayCallback.m_hitPointWorld.getX(),
-  //                        rayCallback.m_hitPointWorld.getY(),
-  //                        rayCallback.m_hitPointWorld.getZ());
-  //   this->SetLength(this->globalStartPos.Distance(result));
-  // }
+  if (result.size() > 0)
+    this->SetLength(result[0]->distance);
 }
 
 //////////////////////////////////////////////////
 void SiconosRayShape::GetIntersection(double &_dist, std::string &_entity)
 {
+  if (!this->physicsEngine)
+    return;
+
   _dist = 0;
   _entity = "";
 
@@ -105,7 +113,7 @@ void SiconosRayShape::GetIntersection(double &_dist, std::string &_entity)
         boost::static_pointer_cast<SiconosCollision>(this->collisionParent);
 
     LinkPtr link = this->collisionParent->GetLink();
-    GZ_ASSERT(link != NULL, "Siconos link is NULL");
+    GZ_ASSERT(link != nullptr, "Siconos link is null");
 
     this->globalStartPos = link->WorldPose().CoordPositionAdd(
           this->relativeStartPos);
@@ -114,30 +122,30 @@ void SiconosRayShape::GetIntersection(double &_dist, std::string &_entity)
           this->relativeEndPos);
   }
 
-  if (this->physicsEngine)
+  SiconosVector startPoint({this->globalStartPos.X(),
+                            this->globalStartPos.Y(),
+                            this->globalStartPos.Z()});
+  SiconosVector endPoint({this->globalEndPos.X(),
+                          this->globalEndPos.Y(),
+                          this->globalEndPos.Z()});
+
+  boost::recursive_mutex::scoped_lock lock(
+      *this->physicsEngine->GetPhysicsUpdateMutex());
+
+  auto sworld = this->physicsEngine->GetSiconosWorld();
+  auto result = sworld->GetManager()->lineIntersectionQuery(
+    startPoint, endPoint, true, false);
+
+  if (result.size() > 0)
   {
-    // btVector3 start(this->globalStartPos.x, this->globalStartPos.y,
-    //     this->globalStartPos.z);
-    // btVector3 end(this->globalEndPos.x, this->globalEndPos.y,
-    //     this->globalEndPos.z);
+    _dist = result[0]->distance;
 
-    // btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-    // rayCallback.m_collisionFilterGroup = GZ_SENSOR_COLLIDE;
-    // rayCallback.m_collisionFilterMask = ~GZ_SENSOR_COLLIDE;
-    // this->physicsEngine->GetDynamicsWorld()->rayTest(
-    //     start, end, rayCallback);
-    // if (rayCallback.hasHit())
-    // {
-    //   math::Vector3 result(rayCallback.m_hitPointWorld.getX(),
-    //                        rayCallback.m_hitPointWorld.getY(),
-    //                        rayCallback.m_hitPointWorld.getZ());
-    //   _dist = this->globalStartPos.Distance(result);
-
-    //   SiconosLink *link = static_cast<SiconosLink *>(
-    //       rayCallback.m_collisionObject->getUserPointer());
-    //   GZ_ASSERT(link != NULL, "Siconos link is NULL");
-    //   _entity = link->GetScopedName();
-    // }
+    if (result[0]->body)
+    {
+      SiconosLinkPtr link = SiconosLink::GetLinkForBody(result[0]->body).lock();
+      GZ_ASSERT(link != nullptr, "Siconos link is null");
+      _entity = link->GetScopedName();
+    }
   }
 }
 

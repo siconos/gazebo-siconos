@@ -18,37 +18,35 @@
 #include "gazebo/common/Exception.hh"
 
 #include "gazebo/physics/World.hh"
-#include "gazebo/physics/bullet/BulletTypes.hh"
-#include "gazebo/physics/bullet/BulletLink.hh"
-#include "gazebo/physics/bullet/BulletCollision.hh"
-#include "gazebo/physics/bullet/BulletPhysics.hh"
-#include "gazebo/physics/bullet/BulletRayShape.hh"
-#include "gazebo/physics/bullet/BulletMultiRayShape.hh"
+#include "gazebo/physics/siconos/SiconosTypes.hh"
+#include "gazebo/physics/siconos/SiconosLink.hh"
+#include "gazebo/physics/siconos/SiconosCollision.hh"
+#include "gazebo/physics/siconos/SiconosPhysics.hh"
+#include "gazebo/physics/siconos/SiconosRayShape.hh"
+#include "gazebo/physics/siconos/SiconosMultiRayShape.hh"
 
 using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
-BulletMultiRayShape::BulletMultiRayShape(CollisionPtr _parent)
+SiconosMultiRayShape::SiconosMultiRayShape(CollisionPtr _parent)
 : MultiRayShape(_parent)
 {
-  this->SetName("Bullet Multiray Shape");
-  this->physicsEngine = boost::static_pointer_cast<BulletPhysics>(
+  this->SetName("Siconos Multiray Shape");
+  this->physicsEngine = boost::static_pointer_cast<SiconosPhysics>(
       this->collisionParent->GetWorld()->Physics());
 }
 
 //////////////////////////////////////////////////
-BulletMultiRayShape::~BulletMultiRayShape()
+SiconosMultiRayShape::~SiconosMultiRayShape()
 {
 }
 
 //////////////////////////////////////////////////
-void BulletMultiRayShape::UpdateRays()
+void SiconosMultiRayShape::UpdateRays()
 {
-  boost::recursive_mutex::scoped_lock lock(
-      *this->physicsEngine->GetPhysicsUpdateMutex());
-
   std::vector<RayShapePtr>::iterator iter;
+  int i=0;
   for (iter = this->rays.begin(); iter != this->rays.end(); ++iter)
   {
     (*iter)->Update();
@@ -56,12 +54,12 @@ void BulletMultiRayShape::UpdateRays()
 }
 
 //////////////////////////////////////////////////
-void BulletMultiRayShape::AddRay(const ignition::math::Vector3d &_start,
+void SiconosMultiRayShape::AddRay(const ignition::math::Vector3d &_start,
     const ignition::math::Vector3d &_end)
 {
   MultiRayShape::AddRay(_start, _end);
 
-  BulletRayShapePtr ray(new BulletRayShape(this->collisionParent));
+  SiconosRayShapePtr ray(new SiconosRayShape(this->collisionParent));
   ray->SetPoints(_start, _end);
 
   this->rays.push_back(ray);
