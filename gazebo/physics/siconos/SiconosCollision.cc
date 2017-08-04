@@ -195,10 +195,12 @@ unsigned int SiconosCollision::UpdateCollisionGroup()
   SiconosPhysicsPtr physics = boost::static_pointer_cast<SiconosPhysics>(
     this->GetWorld()->Physics() );
 
-  SiconosSurfaceParamsPtr surface = boost::static_pointer_cast<SiconosSurfaceParams>(
+  SiconosSurfaceParamsPtr surf = boost::static_pointer_cast<SiconosSurfaceParams>(
     this->surface );
 
   // This must be updated if SurfaceParams change, done in SiconosLink::UpdateSurface.
-  this->siconosContactor->collision_group = physics->GetCollisionGroup(surface);
+  this->siconosContactor->collision_group = physics->GetCollisionGroup(surf);
+
+  return this->siconosContactor->collision_group;
 }
 
