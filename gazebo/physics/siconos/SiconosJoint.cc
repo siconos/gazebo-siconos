@@ -322,7 +322,7 @@ void SiconosJoint::ApplyStiffnessDamping()
     // Take absolute value of dissipationCoefficient, since negative values of
     // dissipationCoefficient are used for adaptive damping to
     // enforce stability.
-    double dampingForce = -fabs(this->dissipationCoefficient[i])
+    double dampingForce = fabs(this->dissipationCoefficient[i])
       * this->GetVelocity(i);
 
     double springForce = this->stiffnessCoefficient[i]

@@ -418,8 +418,6 @@ ignition::math::Vector3d SiconosLink::WorldForce() const
 //////////////////////////////////////////////////
 void SiconosLink::SetTorque(const ignition::math::Vector3d &_torque)
 {
-  if(_torque.SquaredLength() > 0.001)
-    printf("SetTorque()\n");
   if (!this->body)
   {
     gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
@@ -563,10 +561,10 @@ void SiconosLink::AddTorque(const ignition::math::Vector3d &_torque)
 {
   if (this->body)
   {
-    auto torque = this->WorldCoGPose().Rot().RotateVector(_torque);
-    (*this->torque)(0) += torque.X();
-    (*this->torque)(1) += torque.Y();
-    (*this->torque)(2) += torque.Z();
+    auto reltorque = this->WorldCoGPose().Rot().RotateVector(_torque);
+    (*this->torque)(0) += reltorque.X();
+    (*this->torque)(1) += reltorque.Y();
+    (*this->torque)(2) += reltorque.Z();
   }
   else if (!this->IsStatic())
   {
@@ -581,7 +579,6 @@ void SiconosLink::AddRelativeTorque(const ignition::math::Vector3d &_torque)
 {
   if (this->body)
   {
-    auto torque = this->WorldCoGPose().Rot().RotateVector(_torque);
     (*this->torque)(0) += _torque.X();
     (*this->torque)(1) += _torque.Y();
     (*this->torque)(2) += _torque.Z();

@@ -312,16 +312,17 @@ void SiconosHingeJoint::SetForceImpl(unsigned int _index, double _effort)
     this->siconosPivotJointR->normalDoF(v, bv, _index, true);
     ignition::math::Vector3d axis(SiconosTypes::ConvertVector3(v));
 
-    if (this->parentLink) {
-      this->parentLink->AddTorque(_effort * axis);
-    }
-
-    if (this->childLink && !this->parentLink) {
+    if (this->parentLink && this->childLink) {
+      this->parentLink->AddTorque(-_effort * axis);
       this->childLink->AddTorque(_effort * axis);
     }
 
+    else if (this->parentLink) {
+      this->parentLink->AddTorque(_effort * axis);
+    }
+
     else if (this->childLink) {
-      this->childLink->AddTorque(-_effort * axis);
+      this->childLink->AddTorque(_effort * axis);
     }
   }
 }

@@ -280,8 +280,8 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
     ignition::math::Vector3d axis(SiconosTypes::ConvertVector3(v));
 
     if (link0 && link1) {
-      link0->AddRelativeForce(axis * _effort/2);
-      link1->AddRelativeForce(axis * -_effort/2);
+      link0->AddRelativeForce(axis * -_effort);
+      link1->AddRelativeForce(axis * _effort);
     }
     else if (link0) {
       link0->AddRelativeForce(axis * _effort);
