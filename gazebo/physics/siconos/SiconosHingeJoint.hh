@@ -64,18 +64,6 @@ namespace gazebo
       public: virtual double GetVelocity(unsigned int _index) const;
 
       // Documentation inherited.
-      public: virtual void SetUpperLimit(const unsigned int _index, const double _limit);
-
-      // Documentation inherited.
-      public: virtual void SetLowerLimit(const unsigned int _index, const double _limit);
-
-      // Documentation inherited.
-      public: virtual double UpperLimit(const unsigned int _index) const;
-
-      // Documentation inherited.
-      public: virtual double LowerLimit(const unsigned int _index) const;
-
-      // Documentation inherited.
       public: virtual ignition::math::Vector3d GlobalAxis(
           const unsigned int _index) const;
 
@@ -94,12 +82,11 @@ namespace gazebo
       // Documentation inherited.
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
 
+      // Return the Siconos Relation associated with this joint
+      public: virtual SP::NewtonEulerJointR Relation() const;
+
       /// \brief Pointer to siconos hinge constraint.
       private: SP::PivotJointR siconosPivotJointR;
-
-      /// \brief Offset angle used in GetAngleImpl, so that angles are reported
-      ///        relative to the initial configuration.
-      private: double angleOffset;
 
       /// \brief Initial value of joint axis, expressed as unit vector
       ///        in world frame.

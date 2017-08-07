@@ -61,14 +61,6 @@ namespace gazebo
       public: virtual double GetVelocity(unsigned int _index) const;
 
       // Documentation inherited.
-      public: virtual void SetUpperLimit(const unsigned int _index,
-                                         const double _limit);
-
-      // Documentation inherited.
-      public: virtual void SetLowerLimit(const unsigned int _index,
-                                         const double _limit);
-
-      // Documentation inherited.
       public: virtual ignition::math::Vector3d GlobalAxis(
           const unsigned int _index) const;
 
@@ -77,6 +69,9 @@ namespace gazebo
 
       // Documentation inherited.
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
+
+      // Return the Siconos Relation associated with this joint
+      public: virtual SP::NewtonEulerJointR Relation() const;
 
       /// \brief Pointer to siconos fixed constraint implementation
       // TODO: FixedJointR does not yet exist in Siconos!

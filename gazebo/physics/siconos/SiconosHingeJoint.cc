@@ -29,6 +29,7 @@
 #include <siconos/NonSmoothDynamicalSystem.hpp>
 #include <siconos/BodyDS.hpp>
 #include <siconos/PivotJointR.hpp>
+#include <siconos/Interaction.hpp>
 
 using namespace gazebo;
 using namespace physics;
@@ -39,8 +40,6 @@ SiconosHingeJoint::SiconosHingeJoint(BasePtr _parent, SP::SiconosWorld _world)
 {
   siconosWorld = _world;
   GZ_ASSERT(siconosWorld, "SiconosWorld pointer is NULL");
-
-  this->angleOffset = 0;
 }
 
 //////////////////////////////////////////////////
@@ -153,30 +152,18 @@ void SiconosHingeJoint::Init()
     return;
   }
 
-  // Give parent class SiconosJoint a pointer to this constraint.
-  this->relation = this->siconosPivotJointR;
-
-  // Set angleOffset based on hinge angle at joint creation.
-  // PositionImpl will report angles relative to this offset.
-  this->angleOffset = this->PositionImpl(0);
-
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosPivotJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<Interaction>(
+  this->interaction = std11::make_shared<::Interaction>(
     std11::make_shared<EqualityConditionNSL>(nc), this->siconosPivotJointR);
 
   // Apply joint angle limits here.
-  // TODO: velocity and effort limits.
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
   sdf::ElementPtr axisElem = this->sdf->GetElement("axis");
   GZ_ASSERT(axisElem != NULL, "Joint axis sdf member is NULL");
-  {
-    sdf::ElementPtr limitElem;
-    limitElem = this->sdf->GetElement("axis")->GetElement("limit");
-    // this->siconosHinge->setLimit(
-    //   this->angleOffset + limitElem->Get<double>("lower"),
-    //   this->angleOffset + limitElem->Get<double>("upper"));
-  }
+  this->SetupJointLimits();
+
+  // TODO: Velocity and effort limits
 
   // Set Joint friction here in Init, since the siconos data structure didn't
   // exist when the friction was set during Joint::Load
@@ -328,66 +315,6 @@ void SiconosHingeJoint::SetForceImpl(unsigned int _index, double _effort)
 }
 
 //////////////////////////////////////////////////
-void SiconosHingeJoint::SetUpperLimit(unsigned int /*_index*/,
-                                      const double _limit)
-{
-  Joint::SetUpperLimit(0, _limit);
-  if (this->siconosPivotJointR)
-  {
-    // this function has additional parameters that we may one day
-    // implement. Be warned that this function will reset them to default
-    // settings
-    // this->siconosHinge->setLimit(this->siconosHinge->getLowerLimit(),
-    //                              this->angleOffset + _limit);
-  }
-  else
-  {
-    gzerr << "siconosHinge not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-void SiconosHingeJoint::SetLowerLimit(unsigned int /*_index*/,
-                                      const double _limit)
-{
-  Joint::SetLowerLimit(0, _limit);
-  if (this->siconosPivotJointR)
-  {
-    // this function has additional parameters that we may one day
-    // implement. Be warned that this function will reset them to default
-    // settings
-    // this->siconosHinge->setLimit(this->angleOffset + _limit,
-    //                              this->siconosHinge->getUpperLimit());
-  }
-  else
-  {
-    gzerr << "siconosHinge not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-double SiconosHingeJoint::UpperLimit(const unsigned int /*_index*/) const
-{
-  double result = ignition::math::NAN_D;
-  if (this->siconosPivotJointR)
-    result = 0.0;// TODO this->siconosHinge->getUpperLimit();
-  else
-    gzerr << "Joint must be created before getting upper limit\n";
-  return result;
-}
-
-//////////////////////////////////////////////////
-double SiconosHingeJoint::LowerLimit(const unsigned int /*_index*/) const
-{
-  double result = ignition::math::NAN_D;
-  if (this->siconosPivotJointR)
-    result = 0.0; //TODO this->siconosHinge->getLowerLimit();
-  else
-    gzerr << "Joint must be created before getting low stop\n";
-  return result;
-}
-
-//////////////////////////////////////////////////
 ignition::math::Vector3d SiconosHingeJoint::GlobalAxis(unsigned int _index) const
 {
   ignition::math::Vector3d result = this->initialWorldAxis;
@@ -497,4 +424,10 @@ double SiconosHingeJoint::GetParam(const std::string &_key, unsigned int _index)
     }
   }
   return SiconosJoint::GetParam(_key, _index);
+}
+
+//////////////////////////////////////////////////
+SP::NewtonEulerJointR SiconosHingeJoint::Relation() const
+{
+  return siconosPivotJointR;
 }

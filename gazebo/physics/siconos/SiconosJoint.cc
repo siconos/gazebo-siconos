@@ -32,6 +32,10 @@
 #include "gazebo/physics/siconos/SiconosJoint.hh"
 #include "gazebo/physics/siconos/SiconosWorld.hh"
 
+#include "siconos/NewtonEulerJointR.hpp"
+#include "siconos/JointStopR.hpp"
+#include "siconos/BodyDS.hpp"
+
 using namespace gazebo;
 using namespace physics;
 
@@ -56,8 +60,8 @@ void SiconosJoint::Fini()
 {
   //this->feedback = NULL;
 
-  if (interaction)
-    siconosWorld->GetSimulation()->unlink(interaction);
+  if (this->interaction)
+    this->siconosWorld->GetSimulation()->unlink(this->interaction);
 }
 
 //////////////////////////////////////////////////
@@ -150,7 +154,24 @@ void SiconosJoint::Detach()
   this->childLink.reset();
   this->parentLink.reset();
   this->siconosWorld->GetSimulation()->unlink(this->interaction);
+  this->Relation().reset();
   this->interaction.reset();
+
+  for (auto& stop : this->upperStops)
+  {
+    if (stop.interaction)
+      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
+    stop.relation.reset();
+    stop.interaction.reset();
+  }
+
+  for (auto& stop : this->lowerStops)
+  {
+    if (stop.interaction)
+      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
+    stop.relation.reset();
+    stop.interaction.reset();
+  }
 }
 
 //////////////////////////////////////////////////
@@ -363,6 +384,128 @@ ignition::math::Vector3d SiconosJoint::LinkTorque(
 {
   gzerr << "Not implement in Siconos\n";
   return ignition::math::Vector3d();
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SetUpperLimit(unsigned int _index,
+                                 const double _limit)
+{
+  Joint::SetUpperLimit(0, _limit);
+
+  // TODO: Better way to detect no limit?
+  if (_limit > 1e15)
+    return;
+
+  if (this->Relation() && _index < this->DOF())
+  {
+    // Make room for this axis index
+    if (_index >= this->upperStops.size())
+      this->upperStops.resize(_index+1);
+
+    // Check that we don't already have a stop at the same position
+    if (this->upperStops[_index].relation
+        && this->upperStops[_index].relation->position(0) == _limit)
+      return;
+
+    // Unlink existing Interaction if necessary
+    if (this->upperStops[_index].interaction)
+      this->siconosWorld->GetSimulation()->unlink(
+        this->upperStops[_index].interaction);
+
+    // Create and store the stop Relation and Interaction
+    SP::JointStopR rel = std11::make_shared<JointStopR>(
+      this->Relation(), _limit, true /* stop direction */, _index /* dof number */);
+
+    SP::Interaction inter = std11::make_shared<::Interaction>(
+      std11::make_shared<NewtonImpactNSL>(), rel);
+
+    this->upperStops[_index] = {rel, inter};
+
+    // Get dynamical systems
+    SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
+    SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+
+    // Link the stop Interaction
+    this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+  }
+  else
+  {
+    gzlog << "Joint relation not yet created.\n";
+  }
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SetLowerLimit(unsigned int _index,
+                                 const double _limit)
+{
+  Joint::SetLowerLimit(0, _limit);
+
+  // TODO: Better way to detect no limit?
+  if (_limit < -1e15)
+    return;
+
+  if (this->Relation() && _index < this->DOF())
+  {
+    // Make room for this axis index
+    if (_index >= this->lowerStops.size())
+      this->lowerStops.resize(_index+1);
+
+    // Check that we don't already have a stop at the same position
+    if (this->lowerStops[_index].relation
+        && this->lowerStops[_index].relation->position(0) == _limit)
+      return;
+
+    // Unlink existing Interaction if necessary
+    if (this->lowerStops[_index].interaction)
+      this->siconosWorld->GetSimulation()->unlink(
+        this->lowerStops[_index].interaction);
+
+    // Create and store the stop Relation and Interaction
+    SP::JointStopR rel = std11::make_shared<JointStopR>(
+      this->Relation(), _limit, false /* stop direction */, _index /* dof number */);
+
+    // Use the global joint stop NSL -- TODO: create per-stop
+    // NewtonImpactNSL when restitution parameter available in SDF.
+    SP::Interaction inter = std11::make_shared<::Interaction>(
+      this->siconosWorld->JointStopNSL(), rel);
+
+    this->lowerStops[_index] = {rel, inter};
+
+    // Get dynamical systems
+    SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
+    SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+
+    // Link the stop Interaction
+    this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+  }
+  else
+  {
+    gzlog << "Joint relation not yet created.\n";
+  }
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SetupJointLimits()
+{
+  GZ_ASSERT(Relation(), "SiconosJoint::Relation was null during limit setup.");
+
+  if (this->DOF() >= 1)
+  {
+    sdf::ElementPtr limitElem(this->sdf->GetElement("axis")->GetElement("limit"));
+    this->SetUpperLimit(0, limitElem->Get<double>("upper"));
+    this->SetLowerLimit(0, limitElem->Get<double>("lower"));
+  }
+
+  if (this->DOF() >= 2)
+  {
+    sdf::ElementPtr limitElem(this->sdf->GetElement("axis2")->GetElement("limit"));
+    this->SetUpperLimit(1, limitElem->Get<double>("upper"));
+    this->SetLowerLimit(1, limitElem->Get<double>("lower"));
+  }
 }
 
 //////////////////////////////////////////////////

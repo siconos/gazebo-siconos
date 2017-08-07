@@ -27,10 +27,11 @@
 #include <boost/make_shared.hpp>
 
 #include "SiconosWorld.hh"
-#include <siconos/FixedJointR.hpp>
 #include <siconos/NonSmoothDynamicalSystem.hpp>
 #include <siconos/Model.hpp>
 #include <siconos/BodyDS.hpp>
+#include <siconos/FixedJointR.hpp>
+#include <siconos/Interaction.hpp>
 
 using namespace gazebo;
 using namespace physics;
@@ -101,12 +102,9 @@ void SiconosFixedJoint::Init()
     return;
   }
 
-  // Give parent class SiconosJoint a pointer to this constraint.
-  this->relation = this->siconosFixedJointR;
-
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosFixedJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<Interaction>(
+  this->interaction = std11::make_shared<::Interaction>(
     std11::make_shared<EqualityConditionNSL>(nc), this->siconosFixedJointR);
 
   // Add the joint to the NSDS
@@ -160,25 +158,15 @@ void SiconosFixedJoint::SetForceImpl(unsigned int /*_index*/, double /*_effort*/
 }
 
 //////////////////////////////////////////////////
-void SiconosFixedJoint::SetUpperLimit(const unsigned int /*_index*/,
-                                      const double /*_limit*/)
-{
-  gzwarn << "SiconosFixedJoint: called method "
-         << "SetUpperLimit that is not valid for joints of type fixed.\n";
-}
-
-//////////////////////////////////////////////////
-void SiconosFixedJoint::SetLowerLimit(const unsigned int /*_index*/,
-                                      const double /*_limit*/)
-{
-  gzwarn << "SiconosFixedJoint: called method "
-         << "SetLowerLimit that is not valid for joints of type fixed.\n";
-}
-
-//////////////////////////////////////////////////
 ignition::math::Vector3d SiconosFixedJoint::GlobalAxis(unsigned int /*_index*/) const
 {
   gzwarn << "SiconosFixedJoint: called method "
          << "GlobalAxis that is not valid for joints of type fixed.\n";
   return ignition::math::Vector3d();
+}
+
+//////////////////////////////////////////////////
+SP::NewtonEulerJointR SiconosFixedJoint::Relation() const
+{
+  return siconosFixedJointR;
 }

@@ -59,6 +59,9 @@ class SiconosWorld
   /// \brief Get the Siconos Simulation for this simulation
   public: SP::TimeStepping GetSimulation() const;
 
+  /// \brief Get the NSL used for joint stops.
+  public: SP::NewtonImpactNSL JointStopNSL() const;
+
   /// \brief Private implementation data
   private: std::shared_ptr<SiconosWorldImpl> impl;
 };

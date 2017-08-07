@@ -21,6 +21,7 @@
 #include <BodyDS.hpp>
 #include <SiconosBulletCollisionManager.hpp>
 #include <NewtonImpactFrictionNSL.hpp>
+#include <NewtonImpactNSL.hpp>
 #include <GenericMechanical.hpp>
 
 #include "gazebo/common/Assert.hh"
@@ -67,6 +68,9 @@ struct SiconosWorldImpl
 
   /// \brief Store timestep so we can check if it changed
   double maxStepSize;
+
+  // \brief The NSL used for joint stops.
+  SP::NewtonImpactNSL jointStopNSL;
 };
 
 class GazeboCollisionManager : public SiconosBulletCollisionManager
@@ -135,6 +139,7 @@ SiconosWorld::SiconosWorld(gazebo::physics::SiconosPhysics *physics)
     this->impl->gravity.zero();
     this->impl->physics = physics;
     this->impl->maxStepSize = 0;
+    this->impl->jointStopNSL = std11::make_shared<NewtonImpactNSL>();
 }
 
 SiconosWorld::~SiconosWorld()
@@ -292,4 +297,9 @@ void SiconosWorld::SetGravity(double _x, double _y, double _z)
     this->impl->gravity.setValue(0, _x);
     this->impl->gravity.setValue(1, _y);
     this->impl->gravity.setValue(2, _z);
+}
+
+SP::NewtonImpactNSL SiconosWorld::JointStopNSL() const
+{
+  return this->impl->jointStopNSL;
 }

@@ -158,25 +158,16 @@ void SiconosSliderJoint::Init()
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
   sdf::ElementPtr axisElem = this->sdf->GetElement("axis");
   GZ_ASSERT(axisElem != NULL, "Joint axis sdf member is NULL");
-  {
-    sdf::ElementPtr limitElem;
-    limitElem = this->sdf->GetElement("axis")->GetElement("limit");
-    // TODO
-    // this->siconosPrismaticJointR->setLowerLinLimit(limitElem->Get<double>("lower"));
-    // this->siconosPrismaticJointR->setUpperLinLimit(limitElem->Get<double>("upper"));
-  }
+  this->SetupJointLimits();
 
   // Set Joint friction here in Init, since the siconos data structure didn't
   // exist when the friction was set during Joint::Load
   this->SetParam("friction", 0,
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
-  // Give parent class SiconosJoint a pointer to this constraint.
-  this->relation = this->siconosPrismaticJointR;
-
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosPrismaticJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<Interaction>(
+  this->interaction = std11::make_shared<::Interaction>(
     std11::make_shared<EqualityConditionNSL>(nc), this->siconosPrismaticJointR);
 
   // Add the joint to the NSDS
@@ -290,60 +281,6 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
       link1->AddRelativeForce(axis * _effort);
     }
   }
-}
-
-//////////////////////////////////////////////////
-void SiconosSliderJoint::SetUpperLimit(unsigned int /*_index*/,
-                                       const double _limit)
-{
-  Joint::SetUpperLimit(0, _limit);
-  if (this->siconosPrismaticJointR)
-  {
-    //TODO
-    //this->siconosPrismaticJointR->setUpperLinLimit(_angle.Radian());
-  }
-  else
-  {
-    gzlog << "siconosPrismaticJointR not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-void SiconosSliderJoint::SetLowerLimit(unsigned int /*_index*/,
-                                       const double _limit)
-{
-  Joint::SetLowerLimit(0, _limit);
-  if (this->siconosPrismaticJointR)
-  {
-    //TODO
-    //this->siconosPrismaticJointR->setLowerLinLimit(_angle.Radian());
-  }
-  else
-  {
-    gzlog << "siconosPrismaticJointR not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-double SiconosSliderJoint::UpperLimit(unsigned int /*_index*/) const
-{
-  double result;
-  if (this->siconosPrismaticJointR)
-    result = 0.0; // TODO this->siconosPrismaticJointR->getUpperLinLimit();
-  else
-    gzlog << "Joint must be created before getting high stop\n";
-  return result;
-}
-
-//////////////////////////////////////////////////
-double SiconosSliderJoint::LowerLimit(unsigned int /*_index*/) const
-{
-  double result;
-  if (this->siconosPrismaticJointR)
-    result = 0.0; // TODO this->siconosPrismaticJointR->getLowerLinLimit();
-  else
-    gzlog << "Joint must be created before getting low stop\n";
-  return result;
 }
 
 //////////////////////////////////////////////////
@@ -482,4 +419,10 @@ double SiconosSliderJoint::GetParam(const std::string &_key, unsigned int _index
     }
   }
   return SiconosJoint::GetParam(_key, _index);
+}
+
+//////////////////////////////////////////////////
+SP::NewtonEulerJointR SiconosSliderJoint::Relation() const
+{
+  return siconosPrismaticJointR;
 }

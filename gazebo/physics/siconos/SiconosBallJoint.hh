@@ -60,20 +60,6 @@ namespace gazebo
                   const double _damping);
 
       // Documentation inherited.
-      public: virtual void SetUpperLimit(unsigned int _index,
-                                         const double _limit);
-
-      // Documentation inherited.
-      public: virtual void SetLowerLimit(unsigned int _index,
-                                         const double _limit);
-
-      // Documentation inherited.
-      public: virtual double UpperLimit(unsigned int _index) const;
-
-      // Documentation inherited.
-      public: virtual double LowerLimit(unsigned int _index) const;
-
-      // Documentation inherited.
       public: virtual double GetVelocity(unsigned int _index) const;
 
       // Documentation inherited.
@@ -96,6 +82,9 @@ namespace gazebo
 
       // Documentation inherited.
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
+
+      // Return the Siconos Relation associated with this joint
+      public: virtual SP::NewtonEulerJointR Relation() const;
 
       /// \brief Pointer to siconos "knee" constraint.
       private: SP::KneeJointR siconosKneeJointR;

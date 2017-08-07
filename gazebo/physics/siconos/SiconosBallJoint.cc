@@ -150,25 +150,16 @@ void SiconosBallJoint::Init()
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
   sdf::ElementPtr axisElem = this->sdf->GetElement("axis");
   GZ_ASSERT(axisElem != NULL, "Joint axis sdf member is NULL");
-  {
-    sdf::ElementPtr limitElem;
-    limitElem = this->sdf->GetElement("axis")->GetElement("limit");
-    // TODO
-    // this->siconosKneeJointR->setLowerLinLimit(limitElem->Get<double>("lower"));
-    // this->siconosKneeJointR->setUpperLinLimit(limitElem->Get<double>("upper"));
-  }
+  this->SetupJointLimits();
 
   // Set Joint friction here in Init, since the siconos data structure didn't
   // exist when the friction was set during Joint::Load
   this->SetParam("friction", 0,
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
-  // Give parent class SiconosJoint a pointer to this constraint.
-  this->relation = this->siconosKneeJointR;
-
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = this->siconosKneeJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<Interaction>(
+  this->interaction = std11::make_shared<::Interaction>(
     std11::make_shared<EqualityConditionNSL>(nc), this->siconosKneeJointR);
 
   // Add the joint to the NSDS
@@ -282,60 +273,6 @@ void SiconosBallJoint::SetForceImpl(unsigned int _index, double _effort)
       link1->AddRelativeForce(axis * _effort);
     }
   }
-}
-
-//////////////////////////////////////////////////
-void SiconosBallJoint::SetUpperLimit(unsigned int /*_index*/,
-                                       const double _limit)
-{
-  Joint::SetUpperLimit(0, _limit);
-  if (this->siconosKneeJointR)
-  {
-    //TODO
-    //this->siconosKneeJointR->setUpperLinLimit(_angle.Radian());
-  }
-  else
-  {
-    gzlog << "siconosKneeJointR not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-void SiconosBallJoint::SetLowerLimit(unsigned int /*_index*/,
-                                       const double _limit)
-{
-  Joint::SetLowerLimit(0, _limit);
-  if (this->siconosKneeJointR)
-  {
-    //TODO
-    //this->siconosKneeJointR->setLowerLinLimit(_angle.Radian());
-  }
-  else
-  {
-    gzlog << "siconosKneeJointR not yet created.\n";
-  }
-}
-
-//////////////////////////////////////////////////
-double SiconosBallJoint::UpperLimit(unsigned int /*_index*/) const
-{
-  double result;
-  if (this->siconosKneeJointR)
-    result = 0.0; // TODO this->siconosKneeJointR->getUpperLinLimit();
-  else
-    gzlog << "Joint must be created before getting high stop\n";
-  return result;
-}
-
-//////////////////////////////////////////////////
-double SiconosBallJoint::LowerLimit(unsigned int /*_index*/) const
-{
-  double result;
-  if (this->siconosKneeJointR)
-    result = 0.0; // TODO this->siconosKneeJointR->getLowerLinLimit();
-  else
-    gzlog << "Joint must be created before getting low stop\n";
-  return result;
 }
 
 //////////////////////////////////////////////////
@@ -474,4 +411,10 @@ double SiconosBallJoint::GetParam(const std::string &_key, unsigned int _index)
     }
   }
   return SiconosJoint::GetParam(_key, _index);
+}
+
+//////////////////////////////////////////////////
+SP::NewtonEulerJointR SiconosBallJoint::Relation() const
+{
+  return siconosKneeJointR;
 }

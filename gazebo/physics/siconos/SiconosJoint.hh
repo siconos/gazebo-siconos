@@ -93,6 +93,14 @@ namespace gazebo
       public: virtual ignition::math::Vector3d LinkTorque(unsigned int _index) const;
 
       // Documentation inherited.
+      public: virtual void SetUpperLimit(unsigned int _index,
+                                         const double _limit);
+
+      // Documentation inherited.
+      public: virtual void SetLowerLimit(unsigned int _index,
+                                         const double _limit);
+
+      // Documentation inherited.
       public: virtual bool SetParam(const std::string &_key,
                                         unsigned int _index,
                                         const boost::any &_value);
@@ -136,22 +144,40 @@ namespace gazebo
                      double _force) = 0;
 
       /// \brief: Setup joint feedback datatructure.
-      /// This is called after Joint::constraint is setup in Init.
+      /// This is called after Relation is setup in Init.
       protected: void SetupJointFeedback();
+
+      /// \brief: Setup joint limits.
+      /// This is called after Relation is setup in Init.
+      protected: virtual void SetupJointLimits();
 
       /// \brief Save external forces applied to this Joint.
       /// \param[in] _index Index of the axis.
       /// \param[in] _force Force value.
       private: void SaveForce(unsigned int _index, double _force);
 
+      // Return the Siconos Relation associated with this joint
+      public: virtual SP::NewtonEulerJointR Relation() const = 0;
+
+      // Return the Siconos Interaction associated with this joint
+      public: virtual SP::Interaction Interaction() const { return interaction; }
+
       /// \brief Pointer to a Interaction object in Siconos.
       protected: SP::Interaction interaction;
 
-      /// \brief Pointer to a Relation object in Siconos.
-      protected: SP::Relation relation;
-
       /// \brief Pointer to Siconos' composite dynamical system.
       protected: SP::SiconosWorld siconosWorld;
+
+      struct StopInteractionPair {
+        SP::JointStopR relation;
+        SP::Interaction interaction;
+      };
+
+      /// \brief Stop relations for upper limit per axis, only exist if set.
+      protected: std::vector< StopInteractionPair > upperStops;
+
+      /// \brief Stop relations for lower limit per axis, only exist if set.
+      protected: std::vector< StopInteractionPair > lowerStops;
 
       /// \brief Feedback data for this joint
       // private: btJointFeedback *feedback;
