@@ -482,9 +482,20 @@ void SiconosLink::SetAngularDamping(double /*_damping*/)
 /////////////////////////////////////////////////
 void SiconosLink::AddForce(const ignition::math::Vector3d &_force)
 {
-  (*this->force)(0) += _force.X();
-  (*this->force)(1) += _force.Y();
-  (*this->force)(2) += _force.Z();
+  if (this->body)
+  {
+    (*this->force)(0) += _force.X();
+    (*this->force)(1) += _force.Y();
+    (*this->force)(2) += _force.Z();
+
+    this->SetEnabled(true);
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddForce"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////
@@ -512,19 +523,58 @@ void SiconosLink::AddRelativeForce(const ignition::math::Vector3d &_force)
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddForceAtWorldPosition(const ignition::math::Vector3d &/*_force*/,
-                                         const ignition::math::Vector3d &/*_pos*/)
+void SiconosLink::AddForceAtWorldPosition(const ignition::math::Vector3d &_force,
+                                          const ignition::math::Vector3d &_pos)
 {
-  gzlog << "SiconosLink::AddForceAtWorldPosition not yet implemented."
-        << std::endl;
+  if (this->body)
+  {
+    auto relpos = this->WorldPose().Rot().RotateVectorReverse(
+      _pos - this->WorldPose().Pos());
+
+    this->AddForceAtRelativePosition(_force, relpos);
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddForceAtWorldPosition"
+          << std::endl;
+  }
 }
 
 /////////////////////////////////////////////////
-void SiconosLink::AddForceAtRelativePosition(const ignition::math::Vector3d &/*_force*/,
-                  const ignition::math::Vector3d &/*_relpos*/)
+void SiconosLink::AddForceAtRelativePosition(const ignition::math::Vector3d &_force,
+                                             const ignition::math::Vector3d &_relpos)
 {
-  gzlog << "SiconosLink::AddForceAtRelativePosition not yet implemented."
-        << std::endl;
+  if (this->body)
+  {
+    // In Siconos, force vector fExt is in world frame, torque moment
+    // vector mExt is in body frame, since we don't set
+    // NewtonEulerDS::isMextExpressedInInertialFrame.
+
+    ignition::math::Vector3d worldFrameForce = _force;
+
+    (*this->force)(0) += worldFrameForce.X();
+    (*this->force)(1) += worldFrameForce.Y();
+    (*this->force)(2) += worldFrameForce.Z();
+
+    ignition::math::Vector3d linkFrameForce =
+      this->WorldPose().Rot().RotateVectorReverse(_force);
+
+    auto linkFrameMoment = _relpos - this->inertial->CoG();
+    auto linkFrameTorque = linkFrameMoment.Cross(linkFrameForce);
+
+    (*this->torque)(0) += linkFrameTorque.X();
+    (*this->torque)(1) += linkFrameTorque.Y();
+    (*this->torque)(2) += linkFrameTorque.Z();
+
+    this->SetEnabled(true);
+  }
+  else if (!this->IsStatic())
+  {
+    gzlog << "Siconos body for link [" << this->GetScopedName() << "]"
+          << " does not exist, unable to AddRelativeForce"
+          << std::endl;
+  }
 }
 
 //////////////////////////////////////////////////
@@ -535,18 +585,10 @@ void SiconosLink::AddLinkForce(const ignition::math::Vector3d &_force,
   {
     // Force vector represents a direction only, so it should be
     // rotated but not translated
-    ignition::math::Vector3d forceWorld =
+    ignition::math::Vector3d worldFrameForce =
       this->WorldPose().Rot().RotateVector(_force);
 
-    // Siconos TODO
-    ignition::math::Vector3d offsetCoG = _offset -
-      this->inertial->CoG();
-
-    (*this->force)(0) += forceWorld.X();
-    (*this->force)(1) += forceWorld.Y();
-    (*this->force)(2) += forceWorld.Z();
-
-    this->SetEnabled(true);
+    this->AddForceAtRelativePosition(worldFrameForce, _offset);
   }
   else if (!this->IsStatic())
   {
@@ -561,10 +603,10 @@ void SiconosLink::AddTorque(const ignition::math::Vector3d &_torque)
 {
   if (this->body)
   {
-    auto reltorque = this->WorldCoGPose().Rot().RotateVector(_torque);
-    (*this->torque)(0) += reltorque.X();
-    (*this->torque)(1) += reltorque.Y();
-    (*this->torque)(2) += reltorque.Z();
+    auto linkFrameTorque = this->WorldCoGPose().Rot().RotateVectorReverse(_torque);
+    (*this->torque)(0) += linkFrameTorque.X();
+    (*this->torque)(1) += linkFrameTorque.Y();
+    (*this->torque)(2) += linkFrameTorque.Z();
   }
   else if (!this->IsStatic())
   {

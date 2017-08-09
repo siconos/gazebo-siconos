@@ -177,9 +177,13 @@ namespace gazebo
       /// \brief Pointer to the siconos physics engine.
       private: SiconosPhysicsPtr siconosPhysics;
 
+      /// \brief Force accumulator in world frame
       private: SP::SiconosVector force;
+
+      /// \brief Torque accumulator in link frame (difference from
+      /// force due to the way Siconos handles mExt vs. fExt, see
+      /// NewtonEulerDS.hpp in Siconos for documentation.)
       private: SP::SiconosVector torque;
-      private: SP::SiconosVector weight;
     };
     /// \}
   }
