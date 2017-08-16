@@ -330,7 +330,7 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
 /// \param[in] _gravity New gravity vector.
 void SiconosPhysics::SetGravity(const ignition::math::Vector3d &_gravity)
 {
-  this->siconosWorld->SetGravity(_gravity.X(), _gravity.Y(), _gravity.Z());
+  this->siconosWorld->SetGravity(_gravity);
 }
 
 /// \brief Look-up or add a collision group based on surface properties

@@ -42,7 +42,7 @@ class SiconosWorld
   public: virtual void compute();
 
   /// \brief Gravity
-  public: void SetGravity(double x, double y, double z);
+  public: void SetGravity(const ignition::math::Vector3<double> &gravity);
 
   /// \brief Add gravity forces to all objects
   public: void AddGravityToLinks();

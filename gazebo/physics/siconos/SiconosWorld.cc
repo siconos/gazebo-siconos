@@ -42,7 +42,7 @@ DEFINE_SPTR(GazeboCollisionManager)
 struct SiconosWorldImpl
 {
   /// \brief Gravity vector
-  SiconosVector gravity;
+  ignition::math::Vector3<double> gravity;
 
   /// \brief The Siconos OneStepIntegrator for this simulation
   SP::OneStepIntegrator osi;
@@ -135,8 +135,7 @@ SP::NonSmoothLaw GazeboCollisionManager::nonSmoothLaw(
 SiconosWorld::SiconosWorld(gazebo::physics::SiconosPhysics *physics)
   : impl(new SiconosWorldImpl())
 {
-    this->impl->gravity.resize(3);
-    this->impl->gravity.zero();
+    this->impl->gravity.Set(0,0,0);
     this->impl->physics = physics;
     this->impl->maxStepSize = 0;
     this->impl->jointStopNSL = std11::make_shared<NewtonImpactNSL>();
@@ -262,7 +261,7 @@ void SiconosWorld::AddGravityToLinks()
   // Add gravity to all objects
   for (const auto &m : this->impl->physics->World()->Models())
   {
-    const auto& g( this->impl->physics->World()->Gravity() );
+    const auto& g( this->impl->gravity );
     for (auto &lk : m->GetLinks()) {
       gazebo::physics::SiconosLinkPtr link(
         boost::static_pointer_cast<gazebo::physics::SiconosLink>(lk));
@@ -292,11 +291,9 @@ SP::TimeStepping SiconosWorld::GetSimulation() const
   return this->impl->simulation;
 }
 
-void SiconosWorld::SetGravity(double _x, double _y, double _z)
+void SiconosWorld::SetGravity(const ignition::math::Vector3<double> &gravity)
 {
-    this->impl->gravity.setValue(0, _x);
-    this->impl->gravity.setValue(1, _y);
-    this->impl->gravity.setValue(2, _z);
+  this->impl->gravity = gravity;
 }
 
 SP::NewtonImpactNSL SiconosWorld::JointStopNSL() const
