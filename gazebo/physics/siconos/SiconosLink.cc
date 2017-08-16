@@ -194,9 +194,12 @@ void SiconosLink::UpdateMass()
 {
   if (this->body && this->inertial)
   {
-    // TODO Siconos
-    // this->body->setMassProps(this->inertial->GetMass(),
-    //     SiconosTypes::ConvertVector3(this->inertial->GetPrincipalMoments()));
+    auto moi = this->inertial->MOI(
+      ignition::math::Pose3d(this->inertial->CoG(),
+                             ignition::math::Quaterniond::Identity));
+    SP::SimpleMatrix inertia = SiconosTypes::ConvertMatrix3(moi);
+    this->body->setInertia(inertia);
+    this->body->setUseContactorInertia(false);
   }
 }
 
@@ -324,7 +327,7 @@ ignition::math::Vector3d SiconosLink::WorldCoGLinearVel() const
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  return SiconosTypes::ConvertVector3( this->body->velocity() );
+  return SiconosTypes::ConvertVector3( this->body->linearVelocity(true) );
 }
 
 //////////////////////////////////////////////////
@@ -339,15 +342,21 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  ignition::math::Pose3d wPose = this->WorldPose();
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
-  ignition::math::Vector3d offsetFromCoG = wPose.Rot()*(_offset - this->inertial->CoG());
-  // Siconos TODO
-  // btVector3 vel = this->body->getVelocityInLocalPoint(
-  //     SiconosTypes::ConvertVector3(offsetFromCoG));
 
-  // return SiconosTypes::ConvertVector3(vel);
-  return ignition::math::Vector3d(0,0,0);
+  auto offsetFromCoG = this->WorldPose().Rot()
+    .RotateVectorReverse(_offset - this->inertial->CoG());
+
+  auto worldAngularVel =
+    SiconosTypes::ConvertVector3( this->body->angularVelocity(true) );
+
+  auto worldLinearVel =
+    SiconosTypes::ConvertVector3( this->body->linearVelocity(true) );
+
+  auto worldPointVel =
+    worldLinearVel + worldAngularVel.Cross(offsetFromCoG);
+
+  return worldPointVel;
 }
 
 //////////////////////////////////////////////////
@@ -363,7 +372,22 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
     return ignition::math::Vector3d(0, 0, 0);
   }
 
-  return SiconosTypes::ConvertVector3(this->body->linearVelocity(true));
+  GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
+
+  auto wQ = this->WorldPose().Rot();
+  auto offsetFromCoG = wQ.RotateVectorReverse(
+    wQ.RotateVector(_q * _offset) - this->inertial->CoG());
+
+  auto worldAngularVel =
+    SiconosTypes::ConvertVector3( this->body->angularVelocity(true) );
+
+  auto worldLinearVel =
+    SiconosTypes::ConvertVector3( this->body->linearVelocity(true) );
+
+  auto worldPointVel =
+    worldLinearVel + worldAngularVel.Cross(offsetFromCoG);
+
+  return worldPointVel;
 }
 
 //////////////////////////////////////////////////
@@ -425,14 +449,16 @@ void SiconosLink::SetTorque(const ignition::math::Vector3d &_torque)
     return;
   }
 
-  SiconosTypes::ConvertVector3(_torque, this->torque);
+  auto linkFrameTorque = this->WorldPose().Rot().RotateVector(_torque);
+  SiconosTypes::ConvertVector3(linkFrameTorque, this->torque);
 }
 
 //////////////////////////////////////////////////
 ignition::math::Vector3d SiconosLink::WorldTorque() const
 {
   if (this->body)
-    return SiconosTypes::ConvertVector3(this->torque);
+    return this->WorldPose().Rot().RotateVectorReverse(
+      SiconosTypes::ConvertVector3(this->torque));
   else
     return ignition::math::Vector3d(0,0,0);
 }
