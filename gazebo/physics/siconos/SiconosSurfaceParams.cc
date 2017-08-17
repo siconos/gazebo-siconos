@@ -15,6 +15,8 @@
  *
 */
 
+#include <boost/make_shared.hpp>
+
 #include "gazebo/common/Console.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
 
