@@ -416,7 +416,7 @@ void SiconosLink::SetTorque(const ignition::math::Vector3d &_torque)
     return;
   }
 
-  auto linkFrameTorque = this->WorldPose().Rot().RotateVector(_torque);
+  auto linkFrameTorque = this->WorldPose().Rot().RotateVectorReverse(_torque);
   SiconosTypes::ConvertVector3(linkFrameTorque, this->torque);
 }
 
@@ -424,7 +424,7 @@ void SiconosLink::SetTorque(const ignition::math::Vector3d &_torque)
 ignition::math::Vector3d SiconosLink::WorldTorque() const
 {
   if (this->body)
-    return this->WorldPose().Rot().RotateVectorReverse(
+    return this->WorldPose().Rot().RotateVector(
       SiconosTypes::ConvertVector3(this->torque));
   else
     return ignition::math::Vector3d(0,0,0);
