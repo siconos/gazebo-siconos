@@ -53,13 +53,14 @@ set (headers
   SiconosTypes.hh
   # SiconosUniversalJoint.hh
   # gzBtUniversalConstraint.hh
-  SiconosWorld.hh
 )
 
-# set (gtest_fixture_sources
-#   SiconosPhysics_TEST.cc
-# )
-# gz_build_tests(${gtest_fixture_sources}
-#   EXTRA_LIBS gazebo_physics gazebo_test_fixture)
+include_directories(SYSTEM ${siconos_INCLUDE_DIRS})
+
+set (gtest_fixture_sources
+  SiconosPhysics_TEST.cc
+)
+gz_build_tests(${gtest_fixture_sources}
+  EXTRA_LIBS gazebo_physics gazebo_test_fixture)
 
 gz_install_includes("physics/siconos" ${headers})

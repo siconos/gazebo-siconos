@@ -46,7 +46,7 @@ TEST_F(SiconosPhysics_TEST, PhysicsParam)
   WorldPtr world = get_world("default");
   ASSERT_TRUE(world != NULL);
 
-  PhysicsEnginePtr physics = world->GetPhysicsEngine();
+  PhysicsEnginePtr physics = world->Physics();
   ASSERT_TRUE(physics != NULL);
   EXPECT_EQ(physics->GetType(), physicsEngineStr);
 
@@ -113,7 +113,7 @@ void SiconosPhysics_TEST::PhysicsMsgParam()
   physics::WorldPtr world = physics::get_world("default");
   ASSERT_TRUE(world != NULL);
 
-  physics::PhysicsEnginePtr engine = world->GetPhysicsEngine();
+  physics::PhysicsEnginePtr engine = world->Physics();
   ASSERT_TRUE(engine != NULL);
 
   transport::NodePtr phyNode;
