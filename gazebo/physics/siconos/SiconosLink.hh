@@ -180,6 +180,9 @@ namespace gazebo
       /// \brief Force accumulator in world frame
       private: SP::SiconosVector force;
 
+      /// \brief Gravity on or off.
+      private: bool gravityMode;
+
       /// \brief Torque accumulator in link frame (difference from
       /// force due to the way Siconos handles mExt vs. fExt, see
       /// NewtonEulerDS.hpp in Siconos for documentation.)

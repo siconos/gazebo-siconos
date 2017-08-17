@@ -55,6 +55,7 @@ public:
 SiconosLink::SiconosLink(EntityPtr _parent)
     : Link(_parent)
     , contactorSet(new SiconosContactorSet())
+    , gravityMode(true)
 {
   this->siconosPhysics = boost::dynamic_pointer_cast<SiconosPhysics>(
       this->GetWorld()->Physics());
@@ -206,47 +207,13 @@ void SiconosLink::UpdateMass()
 //////////////////////////////////////////////////
 void SiconosLink::SetGravityMode(bool _mode)
 {
-  // TODO Siconos
-  if (!this->body)
-  {
-    gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
-          << " does not exist, unable to SetGravityMode" << std::endl;
-    return;
-  }
-
-  if (_mode == false)
-    // this->body->setGravity(btVector3(0, 0, 0));
-    // this->body->setMassProps(btScalar(0), btmath::Vector3(0, 0, 0));
-    ;
-  else
-  {
-    ignition::math::Vector3d g = this->siconosPhysics->World()->Gravity();
-    // Siconos TODO
-    // this->body->setGravity(btVector3(g.x, g.y, g.z));
-    /*btScalar btMass = this->mass.GetAsDouble();
-    btmath::Vector3 fallInertia(0, 0, 0);
-
-    this->compoundShape->calculateLocalInertia(btMass, fallInertia);
-    this->body->setMassProps(btMass, fallInertia);
-    */
-  }
+  this->gravityMode = _mode;
 }
 
 //////////////////////////////////////////////////
 bool SiconosLink::GetGravityMode() const
 {
-  bool result = false;
-  if (!this->body)
-  {
-    gzlog << "Siconos rigid body for link [" << this->GetName() << "]"
-          << " does not exist, GetGravityMode returns "
-          << result << " by default." << std::endl;
-    return result;
-  }
-  // btVector3 g = this->body->getGravity();
-  // result = !math::equal(static_cast<double>(g.length()), 0.0);
-
-  return result;
+  return this->gravityMode;
 }
 
 //////////////////////////////////////////////////

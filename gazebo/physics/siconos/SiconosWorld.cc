@@ -265,7 +265,7 @@ void SiconosWorld::AddGravityToLinks()
     for (auto &lk : m->GetLinks()) {
       gazebo::physics::SiconosLinkPtr link(
         boost::static_pointer_cast<gazebo::physics::SiconosLink>(lk));
-      if (link->GetSiconosBodyDS())
+      if (link->GetSiconosBodyDS() && link->GetGravityMode())
         link->AddForce(link->GetSiconosBodyDS()->scalarMass() * g);
     }
   }
