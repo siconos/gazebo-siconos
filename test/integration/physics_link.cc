@@ -142,7 +142,7 @@ void PhysicsLinkTest::AddLinkForceTwoWays(
   // Note: This step must be performed after checking the link forces when DART
   // is the physics engine, because otherwise the accelerations used by the
   // previous tests will be cleared out before they can be tested.
-  if ("dart" == _physicsEngine)
+  if ("dart" == _physicsEngine || "siconos" == _physicsEngine)
   {
     _world->Step(1);
   }
@@ -208,7 +208,7 @@ void PhysicsLinkTest::AddLinkForceTwoWays(
 void PhysicsLinkTest::AddForce(const std::string &_physicsEngine)
 {
   // TODO bullet and simbody currently fail this test
-  if (_physicsEngine != "ode" && _physicsEngine != "dart")
+  if (_physicsEngine == "bullet" || _physicsEngine == "simbody")
   {
     gzerr << "Aborting AddForce test for Bullet and Simbody. "
           << "See issues #1476 and #1478."

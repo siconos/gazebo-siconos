@@ -148,7 +148,7 @@ SiconosWorld::~SiconosWorld()
 void SiconosWorld::setup()
 {
   // User-defined main parameters (TODO: parameters from SDF)
-  double theta = 0.5;              // theta for MoreauJeanOSI integrator
+  double theta = 1.0;              // theta for MoreauJeanOSI integrator
 
   // -----------------------------------------
   // --- Dynamical systems && interactions ---
