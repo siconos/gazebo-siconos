@@ -85,7 +85,6 @@ void SiconosLink::Init()
 
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
   double mass = this->inertial->Mass();
-  ignition::math::Vector3d cogVec = this->inertial->CoG();
 
   for (Base_V::iterator iter = this->children.begin();
        iter != this->children.end(); ++iter)
@@ -103,10 +102,10 @@ void SiconosLink::Init()
   }
 
   // Initial position and velocity
-  SP::SiconosVector q(SiconosTypes::ConvertPose(this->WorldInertialPose()));
+  SP::SiconosVector q(SiconosTypes::ConvertPose(this->WorldCoGPose()));
   SP::SiconosVector v(std11::make_shared<SiconosVector>(6));
   SiconosTypes::ConvertVector3(this->WorldCoGLinearVel(), *v, 0);
-  SiconosTypes::ConvertVector3(this->WorldAngularVel(), *v, 3);
+  SiconosTypes::ConvertVector3(this->RelativeAngularVel(), *v, 3);
 
   if (this->IsStatic() || this->GetKinematic())
   {
@@ -201,6 +200,9 @@ void SiconosLink::UpdateMass()
     SP::SimpleMatrix inertia = SiconosTypes::ConvertMatrix3(moi);
     this->body->setInertia(inertia);
     this->body->setUseContactorInertia(false);
+
+    // In case the center of mass changed:
+    this->OnPoseChange();
   }
 }
 
@@ -235,11 +237,11 @@ void SiconosLink::OnPoseChange()
     return;
   }
 
-  // this->SetEnabled(true);
+  this->SetEnabled(true);
 
-  const ignition::math::Pose3d myPose = this->WorldCoGPose();
+  GZ_ASSERT(this->inertial != nullptr, "Inertial pointer is null");
 
-  SiconosTypes::ConvertPoseToVector7(myPose, this->body->q());
+  SiconosTypes::ConvertPoseToVector7(this->WorldCoGPose(), this->body->q());
   this->body->swapInMemory();
 }
 
