@@ -314,7 +314,7 @@ ignition::math::Vector3d SiconosLink::WorldLinearVel(
   GZ_ASSERT(this->inertial != NULL, "Inertial pointer is NULL");
 
   auto offsetFromCoG = this->WorldPose().Rot()
-    .RotateVectorReverse(_offset - this->inertial->CoG());
+    .RotateVector(_offset - this->inertial->CoG());
 
   auto worldAngularVel =
     SiconosTypes::ConvertVector3( this->body->angularVelocity(true) );
