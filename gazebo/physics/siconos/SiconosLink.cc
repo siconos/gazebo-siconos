@@ -184,9 +184,17 @@ void SiconosLink::Init()
 void SiconosLink::Fini()
 {
   Link::Fini();
+
   SP::SiconosWorld siconosWorld = this->siconosPhysics->GetSiconosWorld();
   GZ_ASSERT(siconosWorld != NULL, "SiconosWorld is NULL");
-  // siconosWorld->removeRigidBody(this->body);
+
+  if (this->body) {
+    siconosWorld->GetManager()->removeBody(this->body);
+    siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+      ->removeDynamicalSystem(this->body);
+  }
+
+  this->body.reset();
 }
 
 /////////////////////////////////////////////////////////////////////
