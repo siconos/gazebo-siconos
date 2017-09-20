@@ -34,10 +34,15 @@
 
 #include "siconos/NewtonEulerJointR.hpp"
 #include "siconos/JointStopR.hpp"
+#include "siconos/JointFrictionR.hpp"
 #include "siconos/BodyDS.hpp"
+#include "siconos/Interaction.hpp"
 
 using namespace gazebo;
 using namespace physics;
+
+//////////////////////////////////////////////////
+std::map< double, SP::RelayNSL > SiconosJoint::frictionNSL;
 
 //////////////////////////////////////////////////
 SiconosJoint::SiconosJoint(BasePtr _parent)
@@ -427,6 +432,9 @@ void SiconosJoint::SetUpperLimit(unsigned int _index,
     SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
     SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
 
+    if (ds2 && !ds1)
+      std::swap(ds1, ds2);
+
     // Link the stop Interaction
     this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
   }
@@ -479,6 +487,9 @@ void SiconosJoint::SetLowerLimit(unsigned int _index,
     SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
     SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
 
+    if (ds2 && !ds1)
+      std::swap(ds1, ds2);
+
     // Link the stop Interaction
     this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
   }
@@ -498,6 +509,8 @@ void SiconosJoint::SetupJointLimits()
     sdf::ElementPtr limitElem(this->sdf->GetElement("axis")->GetElement("limit"));
     this->SetUpperLimit(0, limitElem->Get<double>("upper"));
     this->SetLowerLimit(0, limitElem->Get<double>("lower"));
+    if (limitElem->HasAttribute("velocity"))
+      this->SetVelocityLimit(0, limitElem->Get<double>("velocity"));
   }
 
   if (this->DOF() >= 2)
@@ -505,15 +518,21 @@ void SiconosJoint::SetupJointLimits()
     sdf::ElementPtr limitElem(this->sdf->GetElement("axis2")->GetElement("limit"));
     this->SetUpperLimit(1, limitElem->Get<double>("upper"));
     this->SetLowerLimit(1, limitElem->Get<double>("lower"));
+    if (limitElem->HasAttribute("velocity"))
+      this->SetVelocityLimit(1, limitElem->Get<double>("velocity"));
   }
 }
 
 //////////////////////////////////////////////////
-bool SiconosJoint::SetParam(const std::string &/*_key*/,
-    unsigned int /*_index*/,
-    const boost::any &/*_value*/)
+bool SiconosJoint::SetParam(const std::string &_key,
+    unsigned int _index,
+    const boost::any &_value)
 {
-  gzdbg << "Not implement in Siconos\n";
+  if (_key == "friction") {
+    return this->SetFriction(_index, boost::any_cast<double>(_value));
+  }
+  else
+    gzdbg << "Not implement in Siconos\n";
   return false;
 }
 
@@ -522,6 +541,79 @@ double SiconosJoint::GetParam(const std::string &_key,
     unsigned int _index)
 {
   return Joint::GetParam(_key, _index);
+}
+
+//////////////////////////////////////////////////
+bool SiconosJoint::SetFriction(unsigned int _index, double _value)
+{
+  if (!this->Relation() || _index >= this->DOF())
+  {
+    if (this->Relation())
+      gzerr << "Invalid index [" << _index << "]" << std::endl;
+    else
+      gzlog << "Joint relation not yet created.\n";
+    return false;
+  }
+
+  // Make room for this axis index
+  if (_index >= this->jointFriction.size())
+    this->jointFriction.resize(_index+1);
+
+  // Check that we don't already have friction at the same value
+  if (this->jointFriction[_index].relation
+      && this->jointFriction[_index].value == _value)
+    return true;
+
+  // Unlink existing Interaction if necessary
+  if (this->jointFriction[_index].interaction)
+    this->siconosWorld->GetSimulation()->unlink(
+      this->jointFriction[_index].interaction);
+
+  // If no limit requested, clear things out and just return
+  if (_value < 0.0)
+  {
+    this->jointFriction[_index] = {};
+    return true;
+  }
+
+  // Create and store the stop Relation and Interaction
+  SP::JointFrictionR rel =
+    std11::make_shared<JointFrictionR>(this->Relation(), _index);
+
+  // Joint friction in Siconos is specified as a force limit using
+  // RelayNSL, i.e.: F_friction <= mu * F_normal, where mu * F_normal
+  // is a constant.
+
+  // Note: This appears to be much stronger friction than what one
+  // gets from ODE's dParamFMax, not clear why, so in the meantime we
+  // scale down the limit to approximately match ODE behaviour.
+  double limit = _value*0.003;
+
+  // Look up an existing nslaw if possible, otherwise create one.
+  SP::RelayNSL nslaw(this->frictionNSL[limit]);
+  if (!nslaw)
+  {
+    this->frictionNSL[limit] = nslaw =
+      std11::make_shared<RelayNSL>(1 /*size*/, -limit, limit);
+  }
+
+  SP::Interaction inter = std11::make_shared<::Interaction>(nslaw, rel);
+
+  this->jointFriction[_index] = {rel, inter, _value};
+
+  // Get dynamical systems
+  SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+  SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+  SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
+  SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+
+  if (ds2 && !ds1)
+    std::swap(ds1, ds2);
+
+  // Link the friction Interaction
+  this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+
+  return true;
 }
 
 //////////////////////////////////////////////////

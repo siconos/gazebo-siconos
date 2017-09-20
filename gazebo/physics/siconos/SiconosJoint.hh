@@ -109,6 +109,12 @@ namespace gazebo
       public: virtual double GetParam(const std::string &_key,
                                           unsigned int _index);
 
+      /// \brief Set the joint friction for an axis index.
+      /// \param _index The axis index to set friction for.
+      /// \param _value The friction value to set.
+      /// \return True if the friction was set successfully to the desired value.
+      public: virtual bool SetFriction(unsigned int _index, double _value);
+
       // Documentation inherited.
       public: virtual void SetProvideFeedback(bool _enable);
 
@@ -178,6 +184,18 @@ namespace gazebo
 
       /// \brief Stop relations for lower limit per axis, only exist if set.
       protected: std::vector< StopInteractionPair > lowerStops;
+
+      struct FrictionInteraction {
+        SP::JointFrictionR relation;
+        SP::Interaction interaction;
+        double value;
+      };
+
+      /// \brief Friction relations for friction per axis, only exist if set.
+      protected: std::vector< FrictionInteraction > jointFriction;
+
+      /// \brief Global storage for friction-related NonSmoothLaws.
+      protected: static std::map< double, SP::RelayNSL > frictionNSL;
 
       /// \brief Feedback data for this joint
       // private: btJointFeedback *feedback;

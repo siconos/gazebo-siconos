@@ -163,8 +163,6 @@ void SiconosHingeJoint::Init()
   GZ_ASSERT(axisElem != NULL, "Joint axis sdf member is NULL");
   this->SetupJointLimits();
 
-  // TODO: Velocity and effort limits
-
   // Set Joint friction here in Init, since the siconos data structure didn't
   // exist when the friction was set during Joint::Load
   this->SetParam("friction", 0,
@@ -368,27 +366,7 @@ bool SiconosHingeJoint::SetParam(const std::string &_key,
 
   try
   {
-    if (_key == "friction")
-    {
-      if (this->siconosPivotJointR)
-      {
-        // enableAngularMotor takes max impulse as a parameter
-        // instead of max force.
-        // this means the friction will change when the step size changes.
-        // double dt = this->world->Physics()->GetMaxStepSize();
-        // this->siconosHinge->enableAngularMotor(true, 0.0,
-        //   dt * boost::any_cast<double>(_value));
-      }
-      else
-      {
-        gzerr << "Joint must be created before setting " << _key << std::endl;
-        return false;
-      }
-    }
-    else
-    {
-      return SiconosJoint::SetParam(_key, _index, _value);
-    }
+    return SiconosJoint::SetParam(_key, _index, _value);
   }
   catch(const boost::bad_any_cast &e)
   {

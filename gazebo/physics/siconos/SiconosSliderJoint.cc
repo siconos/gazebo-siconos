@@ -154,7 +154,6 @@ void SiconosSliderJoint::Init()
   }
 
   // Apply joint translation limits here.
-  // TODO: velocity and effort limits.
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
   sdf::ElementPtr axisElem = this->sdf->GetElement("axis");
   GZ_ASSERT(axisElem != NULL, "Joint axis sdf member is NULL");
@@ -365,26 +364,7 @@ bool SiconosSliderJoint::SetParam(const std::string &_key,
 
   try
   {
-    if (_key == "friction")
-    {
-      if (this->siconosPrismaticJointR)
-      {
-        // TODO
-        // this->siconosPrismaticJointR->setPoweredLinMotor(true);
-        // this->siconosPrismaticJointR->setTargetLinMotorVelocity(0.0);
-        // double value = boost::any_cast<double>(_value);
-        // this->siconosPrismaticJointR->setMaxLinMotorForce(value);
-      }
-      else
-      {
-        gzerr << "Joint must be created before setting " << _key << std::endl;
-        return false;
-      }
-    }
-    else
-    {
-      return SiconosJoint::SetParam(_key, _index, _value);
-    }
+    return SiconosJoint::SetParam(_key, _index, _value);
   }
   catch(const boost::bad_any_cast &e)
   {
