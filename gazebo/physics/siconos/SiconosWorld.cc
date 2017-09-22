@@ -23,6 +23,7 @@
 #include <NewtonImpactFrictionNSL.hpp>
 #include <NewtonImpactNSL.hpp>
 #include <GenericMechanical.hpp>
+#include <BulletR.hpp>
 
 #include "gazebo/common/Assert.hh"
 #include "gazebo/common/Console.hh"
@@ -31,11 +32,13 @@
 #include "gazebo/physics/Link.hh"
 #include "gazebo/physics/World.hh"
 #include "gazebo/physics/PhysicsEngine.hh"
+#include "gazebo/physics/ContactManager.hh"
 
 #include "gazebo/physics/siconos/SiconosTypes.hh"
 #include "gazebo/physics/siconos/SiconosLink.hh"
 #include "gazebo/physics/siconos/SiconosSurfaceParams.hh"
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
+#include "gazebo/physics/siconos/SiconosCollision.hh"
 
 DEFINE_SPTR(GazeboCollisionManager)
 
@@ -243,6 +246,8 @@ void SiconosWorld::compute()
 
     this->impl->simulation->computeOneStep();
 
+    UpdateContactInformation();
+
     this->impl->simulation->nextStep();
   }
 
@@ -299,4 +304,91 @@ void SiconosWorld::SetGravity(const ignition::math::Vector3<double> &gravity)
 SP::NewtonImpactNSL SiconosWorld::JointStopNSL() const
 {
   return this->impl->jointStopNSL;
+}
+
+// This is needed for the unordered_map with a pair key used in
+// UpdateContactInformation.
+namespace std {
+template <typename T, typename U>
+struct hash<pair<T,U> > {
+  size_t operator()(pair<T,U> x) const
+    { return hash<T>()(x.first) ^ hash<U>()(x.second); }
+};
+}
+
+/// Update contact information for ContactManager by traversing the
+/// indexSet(1) (set of active Interactions) and finding all
+/// GazeboBulletR relations.
+void SiconosWorld::UpdateContactInformation()
+{
+  using namespace gazebo::physics;
+
+  std::unordered_map< std::pair< SiconosCollision*, SiconosCollision* >, Contact* >
+    contactMap;
+
+  SP::InteractionsGraph indexSet = this->impl->simulation->indexSet(1);
+  InteractionsGraph::VIterator vi, viend;
+  for (std11::tie(vi, viend) = indexSet->vertices();
+       vi != viend; ++vi)
+  {
+    SP::Interaction inter = indexSet->bundle(*vi);
+    SP::BodyDS ds1 = std11::dynamic_pointer_cast<BodyDS>(indexSet->properties(*vi).source);
+    SP::BodyDS ds2 = std11::dynamic_pointer_cast<BodyDS>(indexSet->properties(*vi).target);
+
+    SP::BulletR rel = std11::dynamic_pointer_cast<BulletR>(inter->relation());
+    if (!(rel && ds1 && ds2)) continue;
+
+    // Some reverse lookups needed to create a contact.
+    SiconosCollisionPtr collisionPtr1, collisionPtr2;
+    if (rel->shape[0])
+      collisionPtr1 = SiconosCollision::CollisionForShape(rel->shape[0]);
+    if (rel->shape[1])
+      collisionPtr2 = SiconosCollision::CollisionForShape(rel->shape[1]);
+
+    Contact *contact = nullptr;
+    auto p = std::make_pair(collisionPtr1.get(), collisionPtr2.get());
+    if (contactMap.find(p) != contactMap.end())
+      contact = contactMap[p];
+    else
+    {
+      // Add a new contact to the manager. This will return nullptr if no one is
+      // listening for contact information.
+      contact = impl->physics->GetContactManager()->NewContact(
+        collisionPtr1.get(), collisionPtr2.get(),
+        collisionPtr1->GetWorld()->SimTime());
+
+      // Exit early if NewContact returns null, since no one is listening.
+      if (!contact)
+        return;
+    }
+
+    if (contact->count >= MAX_CONTACT_JOINTS)
+      contact = impl->physics->GetContactManager()->NewContact(
+        collisionPtr1.get(), collisionPtr2.get(),
+        collisionPtr1->GetWorld()->SimTime());
+
+
+    if (contact && contact->count < MAX_CONTACT_JOINTS)
+    {
+      // Reuse this contact for same pair
+      contactMap[p] = contact;
+
+      // Fill out contact information.
+      unsigned int c = contact->count++;
+
+      // Report middle between the two contact points
+      contact->positions[c] = (SiconosTypes::ConvertVector3(rel->pc1())
+                               + SiconosTypes::ConvertVector3(rel->pc2()))/2;
+      contact->normals[c] = SiconosTypes::ConvertVector3(rel->nc());
+      contact->depths[c] = rel->distance();
+
+      // Lambda is the output of the interaction = force of the contact.
+      // It is in body1 frame, so rotate it into the world frame.
+      auto lambda = SiconosTypes::ConvertVector3(inter->lambda(1));
+      ignition::math::Pose3d pose( SiconosTypes::ConvertPose(*ds1->q()) );
+      lambda = pose.Rot().RotateVectorReverse(lambda);
+      contact->wrench[c].body1Force = lambda;
+      contact->wrench[c].body2Force = -lambda;
+    }
+  }
 }

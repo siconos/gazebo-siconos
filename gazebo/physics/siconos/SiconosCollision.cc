@@ -34,6 +34,10 @@ using namespace gazebo;
 using namespace physics;
 
 //////////////////////////////////////////////////
+std::unordered_map< SiconosShape*, SiconosCollisionPtr >
+  SiconosCollision::shapeCollisionMap;
+
+//////////////////////////////////////////////////
 SiconosCollision::SiconosCollision(LinkPtr _parent)
     : Collision(_parent)
 {
@@ -64,6 +68,12 @@ void SiconosCollision::Load(sdf::ElementPtr _sdf)
   }
 
   UpdateCollisionGroup();
+}
+
+void SiconosCollision::Fini()
+{
+  if (this->siconosContactor->shape)
+    shapeCollisionMap.erase(&*this->siconosContactor->shape);
 }
 
 //////////////////////////////////////////////////
@@ -146,6 +156,13 @@ void SiconosCollision::SetCollisionShape(SP::SiconosShape _shape,
                                          bool _placeable)
 {
   Collision::SetCollision(_placeable);
+
+  // Need to store reverse map for contact manager
+  if (this->siconosContactor->shape)
+    shapeCollisionMap.erase(&*this->siconosContactor->shape);
+  shapeCollisionMap[&*_shape] =
+    boost::static_pointer_cast<SiconosCollision>(shared_from_this());
+
   this->siconosContactor->shape = _shape;
 
   // btmath::Vector3 vec;
@@ -204,3 +221,13 @@ unsigned int SiconosCollision::UpdateCollisionGroup()
   return this->siconosContactor->collision_group;
 }
 
+/////////////////////////////////////////////////
+SiconosCollisionPtr SiconosCollision::CollisionForShape(SP::SiconosShape shape)
+{
+  std::unordered_map< SiconosShape*, SiconosCollisionPtr >::iterator it;
+  it = shapeCollisionMap.find(&*shape);
+  if (it != shapeCollisionMap.end())
+    return it->second;
+  else
+    return nullptr;
+}

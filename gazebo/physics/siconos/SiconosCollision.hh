@@ -30,6 +30,8 @@
 #include "gazebo/util/system.hh"
 */
 
+#include <boost/enable_shared_from_this.hpp>
+
 #include "gazebo/physics/siconos/siconos_inc.h"
 #include "gazebo/physics/siconos/SiconosTypes.hh"
 #include "gazebo/physics/PhysicsTypes.hh"
@@ -57,6 +59,9 @@ namespace gazebo
 
       /// \brief Load the collision
       public: virtual void Load(sdf::ElementPtr _ptr);
+
+      /// \brief Finalize the collision.
+      public: virtual void Fini();
 
       /// \brief On pose change
       public: virtual void OnPoseChange();
@@ -124,6 +129,14 @@ namespace gazebo
 
       /// \brief Collide bits for collision detection
       private: unsigned int collideBits;
+
+      /// \brief A global look-up table to find the Collision
+      ///        associated with a SiconosShape, for contact manager.
+      private: static std::unordered_map< SiconosShape*, SiconosCollisionPtr >
+        shapeCollisionMap;
+
+      /// \brief Look up the Collision associated with a SiconosShape.
+      public: static SiconosCollisionPtr CollisionForShape(SP::SiconosShape);
     };
     /// \}
   }

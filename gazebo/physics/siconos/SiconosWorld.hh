@@ -64,6 +64,9 @@ class SiconosWorld
 
   /// \brief Private implementation data
   private: std::shared_ptr<SiconosWorldImpl> impl;
+
+  /// \brief Update contact information for ContactManager.
+  private: void UpdateContactInformation();
 };
 
 #endif

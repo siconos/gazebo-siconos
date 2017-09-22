@@ -184,6 +184,15 @@ void SiconosPhysics::OnRequest(ConstRequestPtr &_msg)
 /// \brief Update the physics engine collision.
 void SiconosPhysics::UpdateCollision()
 {
+  this->contactManager->ResetCount();
+
+  // The collision detector in Siconos is called during
+  // Simulation::computeOneStep.  Seeing as it's difficult to separate
+  // it out here, and that there is no way to tell if UpdatePhysics()
+  // is about to be called, nothing more to do.  (If we knew that
+  // UpdatePhysics would be skipped and we just need to update contact
+  // information, we could call the collision engine by itself, but
+  // otherwise it will be called twice if we call it here.)
 }
 
 //////////////////////////////////////////////////
