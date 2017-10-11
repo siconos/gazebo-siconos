@@ -5,7 +5,7 @@ set (sources ${sources}
   siconos/SiconosCollision.cc
   siconos/SiconosFixedJoint.cc
   # SiconosHeightmapShape.cc
-  # SiconosHinge2Joint.cc
+  siconos/SiconosHinge2Joint.cc
   siconos/SiconosHingeJoint.cc
   siconos/SiconosJoint.cc
   siconos/SiconosLink.cc
@@ -34,7 +34,7 @@ set (headers
   SiconosCylinderShape.hh
   SiconosFixedJoint.hh
   # SiconosHeightmapShape.hh
-  # SiconosHinge2Joint.hh
+  SiconosHinge2Joint.hh
   SiconosHingeJoint.hh
   SiconosJoint.hh
   SiconosLink.hh
