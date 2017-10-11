@@ -60,6 +60,14 @@ namespace gazebo
       /// \brief Determines of the two bodies are connected by a joint
       public: bool AreConnected(LinkPtr _one, LinkPtr _two) const;
 
+      /// \brief Determines if the joint is established between its two bodies
+      public: bool IsConnected() const;
+
+      /// \brief Attach the two bodies with this joint.
+      /// \param[in] _parent Parent link.
+      /// \param[in] _child Child link.
+      public: virtual void Attach(LinkPtr _parent, LinkPtr _child);
+
       /// \brief Detach this joint from all bodies
       public: virtual void Detach();
 
@@ -133,6 +141,10 @@ namespace gazebo
       // Documentation inherited.
       public: virtual void Init();
 
+      /// \brief Check if Attach() can be safely called on this joint.
+      /// \return True if Attach() can be safely called on this joint.
+      public: virtual bool IsInitialized();
+
       // Documentation inherited.
       public: virtual void ApplyStiffnessDamping();
 
@@ -162,14 +174,25 @@ namespace gazebo
       /// \param[in] _force Force value.
       private: void SaveForce(unsigned int _index, double _force);
 
-      // Return the Siconos Relation associated with this joint
-      public: virtual SP::NewtonEulerJointR Relation() const = 0;
+      /// \brief Return the Siconos Relation associated with this joint
+      /// \param[in] _index Index of the axis.
+      /// \return The NewtonEulerJointR relation assocated with the
+      ///         axis.  Not necessarily unique to the desired axis!
+      public: virtual SP::NewtonEulerJointR Relation(unsigned int _index) const;
 
-      // Return the Siconos Interaction associated with this joint
-      public: virtual SP::Interaction Interaction() const { return interaction; }
+      /// \brief Return the Siconos Interaction associated with this joint
+      /// \param[in] _index Index of the axis.
+      /// \return The Interaction assocated with the axis.  Not
+      ///         necessarily unique to the desired axis!
+      public: virtual SP::Interaction Interaction(unsigned int _index) const;
 
-      /// \brief Pointer to a Interaction object in Siconos.
-      protected: SP::Interaction interaction;
+      struct JointInteractionPair {
+        SP::NewtonEulerJointR relation;
+        SP::Interaction interaction;
+      };
+
+      /// \brief Pointer to Relation/Interactions for this joint in Siconos.
+      protected: std::vector<JointInteractionPair> relInterPairs;
 
       /// \brief Pointer to Siconos' composite dynamical system.
       protected: SP::SiconosWorld siconosWorld;
@@ -214,6 +237,18 @@ namespace gazebo
       /// \brief Save time at which force is applied by user
       /// This will let us know if it's time to clean up forceApplied.
       private: common::Time forceAppliedTime;
+
+      /// \brief Establish the Interactions for this joint in the Siconos graph.
+      /// \return True if connection was successful, false if there was a problem.
+      protected: bool SiconosConnect();
+
+      /// \brief Called by SiconosConnect() to establish the
+      /// joint-related Interactions; should be not be called
+      /// externally, but may be overridden by individual joints.
+      protected: virtual void SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2);
+
+      /// \brief Remove the Interactions for this joint from the Siconos graph.
+      protected: void SiconosDisconnect();
     };
     /// \}
   }

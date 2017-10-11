@@ -65,8 +65,7 @@ void SiconosJoint::Fini()
 {
   //this->feedback = NULL;
 
-  if (this->interaction)
-    this->siconosWorld->GetSimulation()->unlink(this->interaction);
+  this->Detach();
 }
 
 //////////////////////////////////////////////////
@@ -112,6 +111,14 @@ void SiconosJoint::Init()
 }
 
 //////////////////////////////////////////////////
+bool SiconosJoint::IsInitialized()
+{
+  // Joints should have at least one relation, otherwise we assume we
+  // are uninitialized.
+  return relInterPairs.size() > 0;
+}
+
+//////////////////////////////////////////////////
 void SiconosJoint::Reset()
 {
   Joint::Reset();
@@ -122,7 +129,8 @@ LinkPtr SiconosJoint::GetJointLink(unsigned int _index) const
 {
   LinkPtr result;
 
-  if (!this->interaction)
+  if (_index < this->relInterPairs.size()
+      || !this->relInterPairs[_index].interaction)
     gzthrow("Attach bodies to the joint first");
 
   if (_index == 0 || _index == 1)
@@ -147,36 +155,42 @@ LinkPtr SiconosJoint::GetJointLink(unsigned int _index) const
 //////////////////////////////////////////////////
 bool SiconosJoint::AreConnected(LinkPtr _one, LinkPtr _two) const
 {
-  return this->interaction && ((this->childLink.get() == _one.get() &&
-                               this->parentLink.get() == _two.get()) ||
-                              (this->childLink.get() == _two.get() &&
-                               this->parentLink.get() == _one.get()));
+  if (relInterPairs.size() > 0 && this->relInterPairs[0].interaction)
+    if ((this->childLink.get() == _one.get() &&
+         this->parentLink.get() == _two.get()) ||
+        (this->childLink.get() == _two.get() &&
+         this->parentLink.get() == _one.get()))
+      return true;
+  return false;
+}
+
+//////////////////////////////////////////////////
+bool SiconosJoint::IsConnected() const
+{
+  SiconosLinkPtr siconosLink1 =
+    boost::dynamic_pointer_cast<SiconosLink>(this->childLink);
+  SiconosLinkPtr siconosLink2 =
+    boost::dynamic_pointer_cast<SiconosLink>(this->parentLink);
+  return IsInitialized() && (siconosLink1 || siconosLink2);
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::Attach(LinkPtr _parent, LinkPtr _child)
+{
+  Joint::Attach(_parent, _child);
+
+  // Connect if we are already initialized,
+  // otherwise defered until Init().
+  if (this->IsInitialized() && !this->IsConnected())
+    this->SiconosConnect();
 }
 
 //////////////////////////////////////////////////
 void SiconosJoint::Detach()
 {
-  this->childLink.reset();
-  this->parentLink.reset();
-  this->siconosWorld->GetSimulation()->unlink(this->interaction);
-  this->Relation().reset();
-  this->interaction.reset();
+  this->SiconosDisconnect();
 
-  for (auto& stop : this->upperStops)
-  {
-    if (stop.interaction)
-      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
-    stop.relation.reset();
-    stop.interaction.reset();
-  }
-
-  for (auto& stop : this->lowerStops)
-  {
-    if (stop.interaction)
-      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
-    stop.relation.reset();
-    stop.interaction.reset();
-  }
+  Joint::Detach();
 }
 
 //////////////////////////////////////////////////
@@ -195,7 +209,8 @@ void SiconosJoint::CacheForceTorque()
 //////////////////////////////////////////////////
 JointWrench SiconosJoint::GetForceTorque(unsigned int /*_index*/)
 {
-  GZ_ASSERT(!this->interaction, "interaction should be valid");
+  GZ_ASSERT(this->relInterPairs.size() > 0 && this->relInterPairs[0].interaction,
+            "interaction should be valid");
   return this->wrench;
 }
 
@@ -401,7 +416,7 @@ void SiconosJoint::SetUpperLimit(unsigned int _index,
   if (_limit > 1e15)
     return;
 
-  if (this->Relation() && _index < this->DOF())
+  if (this->Relation(_index) && _index < this->DOF())
   {
     // Make room for this axis index
     if (_index >= this->upperStops.size())
@@ -409,34 +424,43 @@ void SiconosJoint::SetUpperLimit(unsigned int _index,
 
     // Check that we don't already have a stop at the same position
     if (this->upperStops[_index].relation
-        && this->upperStops[_index].relation->position(0) == _limit)
+        && this->upperStops[_index].relation->position(0) > _limit-1e-15
+        && this->upperStops[_index].relation->position(0) < _limit+1e-15)
       return;
 
     // Unlink existing Interaction if necessary
-    if (this->upperStops[_index].interaction)
+    if (this->IsConnected() && this->upperStops[_index].interaction)
       this->siconosWorld->GetSimulation()->unlink(
         this->upperStops[_index].interaction);
 
     // Create and store the stop Relation and Interaction
     SP::JointStopR rel = std11::make_shared<JointStopR>(
-      this->Relation(), _limit, true /* stop direction */, _index /* dof number */);
+      this->Relation(_index), _limit, true /* stop direction */,
+      _index /* dof number */);
 
+    // Use the global joint stop NSL -- TODO: create per-stop
+    // NewtonImpactNSL when restitution parameter available in SDF.
     SP::Interaction inter = std11::make_shared<::Interaction>(
-      std11::make_shared<NewtonImpactNSL>(), rel);
+      this->siconosWorld->JointStopNSL(), rel);
 
     this->upperStops[_index] = {rel, inter};
 
-    // Get dynamical systems
-    SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
-    SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
-    SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
-    SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+    // If we are connected, link the interaction immediately,
+    // otherwise it is defered until Attach() calls SiconosConnect().
+    if (IsConnected())
+    {
+      // Get dynamical systems
+      SiconosLinkPtr par = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+      SiconosLinkPtr chld  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+      SP::BodyDS ds1( par ? par->GetSiconosBodyDS() : nullptr );
+      SP::BodyDS ds2( chld  ? chld->GetSiconosBodyDS()  : nullptr );
 
-    if (ds2 && !ds1)
-      std::swap(ds1, ds2);
+      if (ds2 && !ds1)
+        std::swap(ds1, ds2);
 
-    // Link the stop Interaction
-    this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+      // Link the stop Interaction
+      this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+    }
   }
   else
   {
@@ -454,7 +478,7 @@ void SiconosJoint::SetLowerLimit(unsigned int _index,
   if (_limit < -1e15)
     return;
 
-  if (this->Relation() && _index < this->DOF())
+  if (this->Relation(_index) && _index < this->DOF())
   {
     // Make room for this axis index
     if (_index >= this->lowerStops.size())
@@ -462,17 +486,19 @@ void SiconosJoint::SetLowerLimit(unsigned int _index,
 
     // Check that we don't already have a stop at the same position
     if (this->lowerStops[_index].relation
-        && this->lowerStops[_index].relation->position(0) == _limit)
+        && this->lowerStops[_index].relation->position(0) > _limit-1e-15
+        && this->lowerStops[_index].relation->position(0) < _limit+1e-15)
       return;
 
     // Unlink existing Interaction if necessary
-    if (this->lowerStops[_index].interaction)
+    if (this->IsConnected() && this->lowerStops[_index].interaction)
       this->siconosWorld->GetSimulation()->unlink(
         this->lowerStops[_index].interaction);
 
     // Create and store the stop Relation and Interaction
     SP::JointStopR rel = std11::make_shared<JointStopR>(
-      this->Relation(), _limit, false /* stop direction */, _index /* dof number */);
+      this->Relation(_index), _limit, false /* stop direction */,
+      _index /* dof number */);
 
     // Use the global joint stop NSL -- TODO: create per-stop
     // NewtonImpactNSL when restitution parameter available in SDF.
@@ -481,17 +507,22 @@ void SiconosJoint::SetLowerLimit(unsigned int _index,
 
     this->lowerStops[_index] = {rel, inter};
 
-    // Get dynamical systems
-    SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
-    SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
-    SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
-    SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+    // If we are connected, link the interaction immediately,
+    // otherwise it is defered until Attach() calls SiconosConnect().
+    if (IsConnected())
+    {
+      // Get dynamical systems
+      SiconosLinkPtr par = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+      SiconosLinkPtr chld  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+      SP::BodyDS ds1( par ? par->GetSiconosBodyDS() : nullptr );
+      SP::BodyDS ds2( chld  ? chld->GetSiconosBodyDS()  : nullptr );
 
-    if (ds2 && !ds1)
-      std::swap(ds1, ds2);
+      if (ds2 && !ds1)
+        std::swap(ds1, ds2);
 
-    // Link the stop Interaction
-    this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+      // Link the stop Interaction
+      this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+    }
   }
   else
   {
@@ -502,7 +533,7 @@ void SiconosJoint::SetLowerLimit(unsigned int _index,
 //////////////////////////////////////////////////
 void SiconosJoint::SetupJointLimits()
 {
-  GZ_ASSERT(Relation(), "SiconosJoint::Relation was null during limit setup.");
+  GZ_ASSERT(Relation(0), "SiconosJoint::Relation was null during limit setup.");
 
   if (this->DOF() >= 1)
   {
@@ -540,18 +571,34 @@ bool SiconosJoint::SetParam(const std::string &_key,
 double SiconosJoint::GetParam(const std::string &_key,
     unsigned int _index)
 {
+  if (_index >= this->DOF())
+  {
+    gzerr << "Invalid index [" << _index << "]" << std::endl;
+    return 0;
+  }
+  GZ_ASSERT(_index < this->jointFriction.size(),
+            "_index < this->jointFriction.size() in SiconosJoint::GetParam()");
+
+  if (_key == "friction")
+  {
+    return this->jointFriction[_index].value;
+  }
   return Joint::GetParam(_key, _index);
 }
 
 //////////////////////////////////////////////////
 bool SiconosJoint::SetFriction(unsigned int _index, double _value)
 {
-  if (!this->Relation() || _index >= this->DOF())
+  gzlog << "SetFriction[" << GetName() << "]: " << _index << ", " << _value;
+  if (_index >= this->DOF())
   {
-    if (this->Relation())
-      gzerr << "Invalid index [" << _index << "]" << std::endl;
-    else
-      gzlog << "Joint relation not yet created.\n";
+    gzerr << "Invalid index [" << _index << "]" << std::endl;
+    return false;
+  }
+
+  if (!this->Relation(_index))
+  {
+    gzlog << "Joint relation not yet created.\n";
     return false;
   }
 
@@ -561,11 +608,12 @@ bool SiconosJoint::SetFriction(unsigned int _index, double _value)
 
   // Check that we don't already have friction at the same value
   if (this->jointFriction[_index].relation
-      && this->jointFriction[_index].value == _value)
+      && this->jointFriction[_index].value > _value-1e-15
+      && this->jointFriction[_index].value < _value+1e-15)
     return true;
 
   // Unlink existing Interaction if necessary
-  if (this->jointFriction[_index].interaction)
+  if (this->IsConnected() && this->jointFriction[_index].interaction)
     this->siconosWorld->GetSimulation()->unlink(
       this->jointFriction[_index].interaction);
 
@@ -578,7 +626,7 @@ bool SiconosJoint::SetFriction(unsigned int _index, double _value)
 
   // Create and store the stop Relation and Interaction
   SP::JointFrictionR rel =
-    std11::make_shared<JointFrictionR>(this->Relation(), _index);
+    std11::make_shared<JointFrictionR>(this->Relation(_index), _index);
 
   // Joint friction in Siconos is specified as a force limit using
   // RelayNSL, i.e.: F_friction <= mu * F_normal, where mu * F_normal
@@ -601,17 +649,22 @@ bool SiconosJoint::SetFriction(unsigned int _index, double _value)
 
   this->jointFriction[_index] = {rel, inter, _value};
 
-  // Get dynamical systems
-  SiconosLinkPtr parent = boost::static_pointer_cast<SiconosLink>(this->parentLink);
-  SiconosLinkPtr child  = boost::static_pointer_cast<SiconosLink>(this->childLink);
-  SP::BodyDS ds1( parent ? parent->GetSiconosBodyDS() : nullptr );
-  SP::BodyDS ds2( child  ? child->GetSiconosBodyDS()  : nullptr );
+  // If we are connected, link the interaction immediately,
+  // otherwise it is defered until Attach() calls SiconosConnect().
+  if (IsConnected())
+  {
+    // Get dynamical systems
+    SiconosLinkPtr par = boost::static_pointer_cast<SiconosLink>(this->parentLink);
+    SiconosLinkPtr chld  = boost::static_pointer_cast<SiconosLink>(this->childLink);
+    SP::BodyDS ds1( par ? par->GetSiconosBodyDS() : nullptr );
+    SP::BodyDS ds2( chld  ? chld->GetSiconosBodyDS()  : nullptr );
 
-  if (ds2 && !ds1)
-    std::swap(ds1, ds2);
+    if (ds2 && !ds1)
+      std::swap(ds1, ds2);
 
-  // Link the friction Interaction
-  this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+    // Link the friction Interaction
+    this->siconosWorld->GetSimulation()->link(inter, ds1, ds2);
+  }
 
   return true;
 }
@@ -620,4 +673,164 @@ bool SiconosJoint::SetFriction(unsigned int _index, double _value)
 bool SiconosJoint::SetPosition(unsigned int _index, double _position)
 {
   return Joint::SetPositionMaximal(_index, _position);
+}
+
+//////////////////////////////////////////////////
+bool SiconosJoint::SiconosConnect()
+{
+  // If no relation for this joint (strange, but valid), or first
+  // interaction is already present, we just return true.
+  if (relInterPairs.size() < 1 || relInterPairs[0].interaction)
+    return true;
+
+  // Cast to SiconosLink
+  SiconosLinkPtr siconosChildLink =
+    boost::static_pointer_cast<SiconosLink>(this->childLink);
+  SiconosLinkPtr siconosParentLink =
+    boost::static_pointer_cast<SiconosLink>(this->parentLink);
+
+  SP::BodyDS ds1, ds2;
+
+  // If both links exist, then create a joint between the two links.
+  if (siconosChildLink && siconosParentLink)
+  {
+    ds1 = siconosParentLink->GetSiconosBodyDS();
+    ds2 = siconosChildLink->GetSiconosBodyDS();
+  }
+  // If only the child exists, then create a joint between the child
+  // and the world.
+  else if (siconosChildLink)
+  {
+    ds1 = siconosChildLink->GetSiconosBodyDS();
+  }
+  // If only the parent exists, then create a joint between the parent
+  // and the world.
+  else if (siconosParentLink)
+  {
+    ds1 = siconosParentLink->GetSiconosBodyDS();
+  }
+  // Throw an error if no links are given.
+  else
+  {
+    gzerr << "unable to create siconos hinge without links.\n";
+    return false;
+  }
+
+  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
+
+  // Create and link joint interactions
+  this->SiconosConnectJoint(ds1, ds2);
+
+  // Don't process the other relations if something went wrong.
+  if (!IsConnected()) {
+    gzerr << "Joint " << GetName() << " did not connect correctly.";
+    return false;
+  }
+
+  // Add Stop interactions (must already be created in SetUpperLimit)
+  for (auto& stop : this->upperStops)
+  {
+    GZ_ASSERT(stop.interaction, "an upper stop interaction was empty");
+    this->siconosWorld->GetSimulation()->link(stop.interaction, ds1, ds2);
+  }
+
+  // Add Friction interactions (must already be created in SetLowerLimit)
+  for (auto& stop : this->lowerStops)
+  {
+    GZ_ASSERT(stop.interaction, "a lower stop interaction was empty");
+    this->siconosWorld->GetSimulation()->link(stop.interaction, ds1, ds2);
+  }
+
+  // Add Friction interactions (if already created in SetFriction)
+  for (auto& fr : this->jointFriction)
+  {
+    if (fr.interaction)
+      this->siconosWorld->GetSimulation()->link(fr.interaction, ds1, ds2);
+  }
+
+  return true;
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
+{
+  // Create and link Joint interactions; we assume that if the
+  // Interaction pointer is non-empty, it is linked.
+  for (auto & ri : this->relInterPairs)
+  {
+    ri.relation->setBasePositions(ds1->q(), ds2 ? ds2->q() : SP::SiconosVector());
+
+    GZ_ASSERT(!ri.interaction, "joint already connected");
+
+    // Create a Siconos Interacton with an EqualityConditionNSL
+    int nc = this->Relation(0)->numberOfConstraints();
+    ri.interaction = std11::make_shared<::Interaction>(
+      std11::make_shared<EqualityConditionNSL>(nc), ri.relation);
+
+    // Add the interaction to the NSDS
+    this->siconosWorld->GetSimulation()->link(ri.interaction, ds1, ds2);
+  }
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SiconosDisconnect()
+{
+  if (!IsConnected())
+    return;
+
+  // Disconnect upper stop interactions
+  for (auto& stop : this->upperStops)
+  {
+    if (stop.interaction)
+      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
+  }
+
+  // Disconnect lower stop interactions
+  for (auto& stop : this->lowerStops)
+  {
+    if (stop.interaction)
+      this->siconosWorld->GetSimulation()->unlink(stop.interaction);
+  }
+
+  // Disconnect friction interactions
+  for (auto& fr : this->jointFriction)
+  {
+    if (fr.interaction)
+      this->siconosWorld->GetSimulation()->unlink(fr.interaction);
+  }
+
+  // Disconnect joint interactions, destroy them to indicate
+  // disconnected status.
+  for (auto & ri : this->relInterPairs)
+  {
+    if (ri.interaction)
+      this->siconosWorld->GetSimulation()->unlink(ri.interaction);
+    ri.interaction.reset();
+  }
+}
+
+//////////////////////////////////////////////////
+SP::NewtonEulerJointR SiconosJoint::Relation(unsigned int _index) const
+{
+  GZ_ASSERT(relInterPairs.size() == 0 || relInterPairs.size() == 1,
+            "should be overridden for joints with multiple relations");
+  GZ_ASSERT(_index == 0, "this joint has a single relation");
+
+  if (relInterPairs.size() > 0)
+    return relInterPairs[0].relation;
+  else
+    return SP::NewtonEulerJointR();
+}
+
+//////////////////////////////////////////////////
+SP::Interaction SiconosJoint::Interaction(unsigned int _index) const
+{
+  GZ_ASSERT(relInterPairs.size() == 0 || relInterPairs.size() == 1,
+            "should be overridden for joints with multiple relations");
+  GZ_ASSERT(_index == 0, "this joint has a single relation");
+
+  if (relInterPairs.size() > 0)
+    return relInterPairs[0].interaction;
+  else
+    return SP::Interaction();
 }

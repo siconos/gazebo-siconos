@@ -63,11 +63,6 @@ void SiconosSliderJoint::Init()
 {
   SliderJoint<SiconosJoint>::Init();
 
-  SiconosLinkPtr siconosChildLink =
-    boost::static_pointer_cast<SiconosLink>(this->childLink);
-  SiconosLinkPtr siconosParentLink =
-    boost::static_pointer_cast<SiconosLink>(this->parentLink);
-
   // Get axis unit vector (expressed in world frame).
   ignition::math::Vector3d axis = this->initialWorldAxis;
   if (axis == ignition::math::Vector3d::Zero)
@@ -76,69 +71,33 @@ void SiconosSliderJoint::Init()
     axis.Set(0, 0, 1);
   }
 
-  // Local variables used to compute pivots and axes in body-fixed frames
-  // for the parent and child links.
-  ignition::math::Vector3d pivotParent, pivotChild, axisParent, axisChild;
-  ignition::math::Pose3d pose;
-
   // Initialize pivots to anchorPos, which is expressed in the
   // world coordinate frame.
-  pivotParent = this->anchorPos;
-  pivotChild = this->anchorPos;
+  ignition::math::Vector3d pivot = this->anchorPos;
 
   // Check if parentLink exists. If not, the parent will be the world.
   if (this->parentLink)
   {
     // Compute relative pose between joint anchor and CoG of parent link.
-    pose = this->parentLink->WorldCoGPose();
+    ignition::math::Pose3d pose = this->parentLink->WorldCoGPose();
     // Subtract CoG position from anchor position, both in world frame.
-    pivotParent -= pose.Pos();
+    pivot -= pose.Pos();
     // Rotate pivot offset and axis into body-fixed frame of parent.
-    pivotParent = pose.Rot().RotateVectorReverse(pivotParent);
-    axisParent = pose.Rot().RotateVectorReverse(axis);
-    axisParent = axisParent.Normalize();
+    pivot = pose.Rot().RotateVectorReverse(pivot);
+    axis = pose.Rot().RotateVectorReverse(axis);
+    axis = axis.Normalize();
   }
   // Check if childLink exists. If not, the child will be the world.
   if (this->childLink)
   {
     // Compute relative pose between joint anchor and CoG of child link.
-    pose = this->childLink->WorldCoGPose();
+    ignition::math::Pose3d pose = this->childLink->WorldCoGPose();
     // Subtract CoG position from anchor position, both in world frame.
-    pivotChild -= pose.Pos();
+    pivot -= pose.Pos();
     // Rotate pivot offset and axis into body-fixed frame of child.
-    pivotChild = pose.Rot().RotateVectorReverse(pivotChild);
-    axisChild = pose.Rot().RotateVectorReverse(axis);
-    axisChild = axisChild.Normalize();
-  }
-
-  SP::BodyDS ds1, ds2;
-
-  // If both links exist, then create a joint between the two links.
-  if (siconosChildLink && siconosParentLink)
-  {
-    this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-        SiconosTypes::ConvertVector3(axisParent),
-        false /* not absoluteRef */,
-        ds1 = siconosParentLink->GetSiconosBodyDS(),
-        ds2 = siconosChildLink->GetSiconosBodyDS());
-  }
-  // If only the child exists, then create a joint between the child
-  // and the world.
-  else if (siconosChildLink)
-  {
-    this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-      SiconosTypes::ConvertVector3(axisChild),
-      false /* not absoluteRef */,
-      ds1 = siconosChildLink->GetSiconosBodyDS());
-  }
-  // If only the parent exists, then create a joint between the parent
-  // and the world.
-  else if (siconosParentLink)
-  {
-    this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-      SiconosTypes::ConvertVector3(axisParent),
-      false /* not absoluteRef */,
-      ds1 = siconosParentLink->GetSiconosBodyDS());
+    pivot = pose.Rot().RotateVectorReverse(pivot);
+    axis = pose.Rot().RotateVectorReverse(axis);
+    axis = axis.Normalize();
   }
   // Throw an error if no links are given.
   else
@@ -147,11 +106,19 @@ void SiconosSliderJoint::Init()
     return;
   }
 
+  this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
+    SiconosTypes::ConvertVector3(axis), false /* not absoluteRef */);
+
   if (!this->siconosPrismaticJointR)
   {
     gzerr << "unable to create siconos slider joint\n";
     return;
   }
+
+  // Put the relation in our pair list, associated Interaction will be
+  // initialized during SiconosConnect().
+  this->relInterPairs.clear();
+  this->relInterPairs.push_back({this->siconosPrismaticJointR, SP::Interaction()});
 
   // Apply joint translation limits here.
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
@@ -164,26 +131,14 @@ void SiconosSliderJoint::Init()
   this->SetParam("friction", 0,
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
-  // Create a Siconos Interacton with an EqualityConditionNSL
-  int nc = this->siconosPrismaticJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<::Interaction>(
-    std11::make_shared<EqualityConditionNSL>(nc), this->siconosPrismaticJointR);
-
-  // Add the joint to the NSDS
-  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
-  this->siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-    ->link(this->interaction, ds1, ds2);
-
-  // Initialize Interaction states for the Simulation
-  this->siconosWorld->GetSimulation()->initializeInteraction(
-    this->siconosWorld->GetSimulation()->nextTime(),
-    this->interaction);
-
   // Allows access to impulse TODO
   //this->constraint->enableFeedback(true);
 
   // Setup Joint force and torque feedback
   this->SetupJointFeedback();
+
+  // Connect the dynamical systems in the Siconos graph
+  this->SiconosConnect();
 }
 
 //////////////////////////////////////////////////
@@ -349,60 +304,4 @@ double SiconosSliderJoint::PositionImpl(unsigned int _index) const
   }
 
   return result;
-}
-
-//////////////////////////////////////////////////
-bool SiconosSliderJoint::SetParam(const std::string &_key,
-    unsigned int _index,
-    const boost::any &_value)
-{
-  if (_index >= this->DOF())
-  {
-    gzerr << "Invalid index [" << _index << "]" << std::endl;
-    return false;
-  }
-
-  try
-  {
-    return SiconosJoint::SetParam(_key, _index, _value);
-  }
-  catch(const boost::bad_any_cast &e)
-  {
-    gzerr << "SetParam(" << _key << ")"
-          << " boost any_cast error:" << e.what()
-          << std::endl;
-    return false;
-  }
-  return true;
-}
-
-//////////////////////////////////////////////////
-double SiconosSliderJoint::GetParam(const std::string &_key, unsigned int _index)
-{
-  if (_index >= this->DOF())
-  {
-    gzerr << "Invalid index [" << _index << "]" << std::endl;
-    return 0;
-  }
-
-  if (_key == "friction")
-  {
-    if (this->siconosPrismaticJointR)
-    {
-      double value = 0; // TODO this->siconosPrismaticJointR->getMaxLinMotorForce();
-      return value;
-    }
-    else
-    {
-      gzerr << "Joint must be created before getting " << _key << std::endl;
-      return 0.0;
-    }
-  }
-  return SiconosJoint::GetParam(_key, _index);
-}
-
-//////////////////////////////////////////////////
-SP::NewtonEulerJointR SiconosSliderJoint::Relation() const
-{
-  return siconosPrismaticJointR;
 }

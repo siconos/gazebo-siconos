@@ -70,9 +70,6 @@ namespace gazebo
       // Documentation inherited.
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
 
-      // Return the Siconos Relation associated with this joint
-      public: virtual SP::NewtonEulerJointR Relation() const;
-
       /// \brief Pointer to siconos fixed constraint implementation
       // TODO: FixedJointR does not yet exist in Siconos!
       private: SP::FixedJointR siconosFixedJointR;

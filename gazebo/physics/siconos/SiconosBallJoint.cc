@@ -68,69 +68,29 @@ void SiconosBallJoint::Init()
   SiconosLinkPtr siconosParentLink =
     boost::static_pointer_cast<SiconosLink>(this->parentLink);
 
-  // Local variables used to compute pivots and axes in body-fixed frames
-  // for the parent and child links.
-  ignition::math::Vector3d anchorParent, anchorChild;
-  ignition::math::Pose3d pose;
-
-  // Initialize pivots to anchorPos, which is expressed in the
+  // Initialize anchors to anchorPos, which is expressed in the
   // world coordinate frame.
-  anchorParent = this->anchorPos;
-  anchorChild = this->anchorPos;
+  ignition::math::Vector3d anchor = this->anchorPos;
 
   // Check if parentLink exists. If not, the parent will be the world.
   if (this->parentLink)
   {
     // Compute relative pose between joint anchor and CoG of parent link.
-    pose = this->parentLink->WorldCoGPose();
-    // // Subtract CoG position from anchor position, both in world frame.
-    // anchorParent -= pose.Pos();
-    // // Rotate anchor offset and axis into body-fixed frame of parent.
-    // anchorParent = pose.Rot().RotateVectorReverse(anchorParent);
-    // axisParent = pose.Rot().RotateVectorReverse(axis);
-    // axisParent = axisParent.Normalize();
+    ignition::math::Pose3d pose = this->parentLink->WorldCoGPose();
+    // Subtract CoG position from anchor position, both in world frame.
+    anchor -= pose.Pos();
+    // Rotate anchor offset and axis into body-fixed frame of parent.
+    anchor = pose.Rot().RotateVectorReverse(anchor);
   }
   // Check if childLink exists. If not, the child will be the world.
   if (this->childLink)
   {
     // Compute relative pose between joint anchor and CoG of child link.
-    pose = this->childLink->WorldCoGPose();
-    // // Subtract CoG position from anchor position, both in world frame.
-    // anchorChild -= pose.Pos();
-    // // Rotate anchor offset and axis into body-fixed frame of child.
-    // anchorChild = pose.Rot().RotateVectorReverse(anchorChild);
-    // axisChild = pose.Rot().RotateVectorReverse(axis);
-    // axisChild = axisChild.Normalize();
-  }
-
-  SP::BodyDS ds1, ds2;
-
-  // If both links exist, then create a joint between the two links.
-  if (siconosChildLink && siconosParentLink)
-  {
-    this->siconosKneeJointR = std11::make_shared<KneeJointR>(
-      SiconosTypes::ConvertVector3(this->anchorPos),
-      true /* anchorPos is in world frame */,
-      ds1 = siconosParentLink->GetSiconosBodyDS(),
-      ds2 = siconosChildLink->GetSiconosBodyDS());
-  }
-  // If only the child exists, then create a joint between the child
-  // and the world.
-  else if (siconosChildLink)
-  {
-    this->siconosKneeJointR = std11::make_shared<KneeJointR>(
-      SiconosTypes::ConvertVector3(this->anchorPos),
-      true /* anchorPos is in world frame */,
-      ds1 = siconosChildLink->GetSiconosBodyDS());
-  }
-  // If only the parent exists, then create a joint between the parent
-  // and the world.
-  else if (siconosParentLink)
-  {
-    this->siconosKneeJointR = std11::make_shared<KneeJointR>(
-      SiconosTypes::ConvertVector3(this->anchorPos),
-      true /* anchorPos is in world frame */,
-      ds1 = siconosParentLink->GetSiconosBodyDS());
+    ignition::math::Pose3d pose = this->childLink->WorldCoGPose();
+    // Subtract CoG position from anchor position, both in world frame.
+    anchor -= pose.Pos();
+    // Rotate anchor offset and axis into body-fixed frame of child.
+    anchor = pose.Rot().RotateVectorReverse(anchor);
   }
   // Throw an error if no links are given.
   else
@@ -139,11 +99,14 @@ void SiconosBallJoint::Init()
     return;
   }
 
-  if (!this->siconosKneeJointR)
-  {
-    gzerr << "unable to create siconos ball joint\n";
-    return;
-  }
+  this->siconosKneeJointR = std11::make_shared<KneeJointR>(
+    SiconosTypes::ConvertVector3(anchor),
+    false /*not absoluteRef */);
+
+  // Put the relation in our pair list, associated Interaction will be
+  // initialized during SiconosConnect().
+  this->relInterPairs.clear();
+  this->relInterPairs.push_back({this->siconosKneeJointR, SP::Interaction()});
 
   // Apply joint translation limits here.
   // TODO: velocity and effort limits.
@@ -157,26 +120,11 @@ void SiconosBallJoint::Init()
   this->SetParam("friction", 0,
     axisElem->GetElement("dynamics")->Get<double>("friction"));
 
-  // Create a Siconos Interacton with an EqualityConditionNSL
-  int nc = this->siconosKneeJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<::Interaction>(
-    std11::make_shared<EqualityConditionNSL>(nc), this->siconosKneeJointR);
-
-  // Add the joint to the NSDS
-  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
-  this->siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-    ->link(this->interaction, ds1, ds2);
-
-  // Initialize Interaction states for the Simulation
-  this->siconosWorld->GetSimulation()->initializeInteraction(
-    this->siconosWorld->GetSimulation()->nextTime(),
-    this->interaction);
-
-  // Allows access to impulse TODO
-  //this->constraint->enableFeedback(true);
-
   // Setup Joint force and torque feedback
   this->SetupJointFeedback();
+
+  // Connect the dynamical systems in the Siconos graph
+  this->SiconosConnect();
 }
 
 //////////////////////////////////////////////////
@@ -342,79 +290,4 @@ double SiconosBallJoint::PositionImpl(unsigned int _index) const
   }
 
   return result;
-}
-
-//////////////////////////////////////////////////
-bool SiconosBallJoint::SetParam(const std::string &_key,
-    unsigned int _index,
-    const boost::any &_value)
-{
-  if (_index >= this->DOF())
-  {
-    gzerr << "Invalid index [" << _index << "]" << std::endl;
-    return false;
-  }
-
-  try
-  {
-    if (_key == "friction")
-    {
-      if (this->siconosKneeJointR)
-      {
-        // TODO
-        // this->siconosKneeJointR->setPoweredLinMotor(true);
-        // this->siconosKneeJointR->setTargetLinMotorVelocity(0.0);
-        // double value = boost::any_cast<double>(_value);
-        // this->siconosKneeJointR->setMaxLinMotorForce(value);
-      }
-      else
-      {
-        gzerr << "Joint must be created before setting " << _key << std::endl;
-        return false;
-      }
-    }
-    else
-    {
-      return SiconosJoint::SetParam(_key, _index, _value);
-    }
-  }
-  catch(const boost::bad_any_cast &e)
-  {
-    gzerr << "SetParam(" << _key << ")"
-          << " boost any_cast error:" << e.what()
-          << std::endl;
-    return false;
-  }
-  return true;
-}
-
-//////////////////////////////////////////////////
-double SiconosBallJoint::GetParam(const std::string &_key, unsigned int _index)
-{
-  if (_index >= this->DOF())
-  {
-    gzerr << "Invalid index [" << _index << "]" << std::endl;
-    return 0;
-  }
-
-  if (_key == "friction")
-  {
-    if (this->siconosKneeJointR)
-    {
-      double value = 0; // TODO this->siconosKneeJointR->getMaxLinMotorForce();
-      return value;
-    }
-    else
-    {
-      gzerr << "Joint must be created before getting " << _key << std::endl;
-      return 0.0;
-    }
-  }
-  return SiconosJoint::GetParam(_key, _index);
-}
-
-//////////////////////////////////////////////////
-SP::NewtonEulerJointR SiconosBallJoint::Relation() const
-{
-  return siconosKneeJointR;
 }

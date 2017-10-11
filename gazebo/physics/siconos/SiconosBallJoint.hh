@@ -72,19 +72,7 @@ namespace gazebo
       public: virtual double PositionImpl(unsigned int _index) const;
 
       // Documentation inherited.
-      public: virtual bool SetParam(const std::string &_key,
-                                    unsigned int _index,
-                                    const boost::any &_value);
-
-      // Documentation inherited.
-      public: virtual double GetParam(const std::string &_key,
-                                      unsigned int _index);
-
-      // Documentation inherited.
       protected: virtual void SetForceImpl(unsigned int _index, double _effort);
-
-      // Return the Siconos Relation associated with this joint
-      public: virtual SP::NewtonEulerJointR Relation() const;
 
       /// \brief Pointer to siconos "knee" constraint.
       private: SP::KneeJointR siconosKneeJointR;

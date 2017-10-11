@@ -60,41 +60,14 @@ void SiconosFixedJoint::Init()
 {
   FixedJoint<SiconosJoint>::Init();
 
-  // Cast to SiconosLink
-  SiconosLinkPtr siconosChildLink =
-      boost::static_pointer_cast<SiconosLink>(this->childLink);
-  SiconosLinkPtr siconosParentLink =
-      boost::static_pointer_cast<SiconosLink>(this->parentLink);
-
-  SP::BodyDS ds1, ds2;
-
-  // If both links exist, then create a joint between the two links.
-  if (siconosChildLink && siconosParentLink)
-  {
-    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
-        ds1 = siconosChildLink->GetSiconosBodyDS(),
-        ds2 = siconosParentLink->GetSiconosBodyDS());
-  }
-  // If only the child exists, then create a joint between the child
-  // and the world.
-  else if (siconosChildLink)
-  {
-    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
-        ds1 = siconosChildLink->GetSiconosBodyDS());
-  }
-  // If only the parent exists, then create a joint between the parent
-  // and the world.
-  else if (siconosParentLink)
-  {
-    this->siconosFixedJointR = std11::make_shared<FixedJointR>(
-        ds1 = siconosParentLink->GetSiconosBodyDS());
-  }
   // Throw an error if no links are given.
-  else
+  if (!this->childLink && !this->parentLink)
   {
     gzerr << "unable to create siconos hinge without links.\n";
     return;
   }
+
+  this->siconosFixedJointR = std11::make_shared<FixedJointR>();
 
   if (!this->siconosFixedJointR)
   {
@@ -102,20 +75,16 @@ void SiconosFixedJoint::Init()
     return;
   }
 
-  // Create a Siconos Interacton with an EqualityConditionNSL
-  int nc = this->siconosFixedJointR->numberOfConstraints();
-  this->interaction = std11::make_shared<::Interaction>(
-    std11::make_shared<EqualityConditionNSL>(nc), this->siconosFixedJointR);
+  // Put the relation in our pair list, associated Interaction will be
+  // initialized during SiconosConnect().
+  this->relInterPairs.clear();
+  this->relInterPairs.push_back({this->siconosFixedJointR, SP::Interaction()});
 
-  // Add the joint to the NSDS
-  GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
-  this->siconosWorld->GetModel()->nonSmoothDynamicalSystem()
-    ->link(this->interaction, ds1, ds2);
+  // Allows access to impulse
+  // this->siconosHinge->enableFeedback(true);
 
-  // Initialize Interaction states for the Simulation
-  this->siconosWorld->GetSimulation()->initializeInteraction(
-    this->siconosWorld->GetSimulation()->nextTime(),
-    this->interaction);
+  // Connect the dynamical systems in the Siconos graph
+  this->SiconosConnect();
 }
 
 //////////////////////////////////////////////////
@@ -163,10 +132,4 @@ ignition::math::Vector3d SiconosFixedJoint::GlobalAxis(unsigned int /*_index*/) 
   gzwarn << "SiconosFixedJoint: called method "
          << "GlobalAxis that is not valid for joints of type fixed.\n";
   return ignition::math::Vector3d();
-}
-
-//////////////////////////////////////////////////
-SP::NewtonEulerJointR SiconosFixedJoint::Relation() const
-{
-  return siconosFixedJointR;
 }
