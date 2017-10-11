@@ -52,6 +52,9 @@ SiconosJoint::SiconosJoint(BasePtr _parent)
   this->stiffnessDampingInitialized = false;
   this->forceApplied[0] = 0;
   this->forceApplied[1] = 0;
+  this->qBody1 = std11::make_shared<SiconosVector>(7);
+  this->qBody1->zero();
+  this->qBody1->setValue(3,1);
 }
 
 //////////////////////////////////////////////////
@@ -111,11 +114,22 @@ void SiconosJoint::Init()
 }
 
 //////////////////////////////////////////////////
-bool SiconosJoint::IsInitialized()
+bool SiconosJoint::IsInitialized() const
 {
-  // Joints should have at least one relation, otherwise we assume we
-  // are uninitialized.
-  return relInterPairs.size() > 0;
+  struct nullcmp { bool operator()(const SP::SiconosVector& x)const{return !x;} };
+
+  // Joint is fully initialized when all axes/points have been
+  // specified for all Relations via SetAxis or SetAnchor.
+  for (const auto & ri : this->relInterPairs)
+  {
+    const auto & axes = ri.relation->axes();
+    const auto & points = ri.relation->points();
+    if (std::any_of(axes.begin(),axes.end(),nullcmp())
+        || std::any_of(points.begin(),points.end(),nullcmp()))
+      return false;
+  }
+
+  return true;
 }
 
 //////////////////////////////////////////////////
@@ -167,11 +181,19 @@ bool SiconosJoint::AreConnected(LinkPtr _one, LinkPtr _two) const
 //////////////////////////////////////////////////
 bool SiconosJoint::IsConnected() const
 {
+  // If any Interactions are empty we assume they are not in the
+  // Siconos graph and therefore we are not connected.
+  for (const auto & ri : this->relInterPairs)
+    if (!ri.interaction) return false;
+
+  // Otherwise if we are not completely defined or have no links, we
+  // are not connected.
   SiconosLinkPtr siconosLink1 =
     boost::dynamic_pointer_cast<SiconosLink>(this->childLink);
   SiconosLinkPtr siconosLink2 =
     boost::dynamic_pointer_cast<SiconosLink>(this->parentLink);
-  return IsInitialized() && (siconosLink1 || siconosLink2);
+
+  return this->IsInitialized() && (siconosLink1 || siconosLink2);
 }
 
 //////////////////////////////////////////////////
@@ -233,6 +255,21 @@ void SiconosJoint::SetupJointFeedback()
     // else
     //   gzerr << "Siconos Joint [" << this->GetName() << "] ID is invalid\n";
   }
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SetAxis(const unsigned int _index,
+                           const ignition::math::Vector3d &_axis)
+{
+  if (!this->Relation(_index))
+    return;
+
+  // Anchor position is supplied in local coordinates, no need to
+  // transform it.
+
+  unsigned int idx = this->RelationPointIndex(_index);
+  if (this->Relation(_index)->axes().size() > idx)
+    this->Relation(_index)->setAxis(idx, SiconosTypes::ConvertVector3(_axis));
 }
 
 //////////////////////////////////////////////////
@@ -377,17 +414,89 @@ void SiconosJoint::ApplyStiffnessDamping()
 }
 
 //////////////////////////////////////////////////
-void SiconosJoint::SetAnchor(unsigned int /*_index*/,
-    const ignition::math::Vector3d & /*_anchor*/)
+ignition::math::Vector3d SiconosJoint::GlobalAxis(unsigned int _index) const
 {
+      /// \brief Get the axis of rotation in global coordinate frame.
+      /// \param[in] _index Index of the axis to get.
+      /// \return Axis value for the provided index.
+
+  if (!this->Relation(_index)) {
+    gzerr << "No relation for GlobalAxis(" << _index << ") for joint " << GetName();
+    return ignition::math::Vector3d(0,0,1);
+  }
+
+  auto& axes = this->Relation(_index)->axes();
+  unsigned int idx = this->RelationAxisIndex(_index);
+
+  if (idx >= this->Relation(_index)->axes().size()) {
+    gzerr << "Bad index for Relation in GlobalAxis(" << _index
+          << ") for joint " << GetName();
+    return ignition::math::Vector3d(0,0,1);
+  }
+
+  LinkPtr link;
+  if (this->parentLink) link = this->parentLink;
+  else if (this->childLink) link = this->childLink;
+
+  if (!link) {
+    gzerr << "No link in GlobalAxis(" << _index << ") for joint " << GetName();
+    return ignition::math::Vector3d(0,0,1);
+  }
+
+  return link->WorldCoGPose().Rot().RotateVectorReverse(
+    SiconosTypes::ConvertVector3(axes[idx]));
 }
 
 //////////////////////////////////////////////////
-ignition::math::Vector3d SiconosJoint::Anchor(
-          unsigned int /*_index*/) const
+void SiconosJoint::SetAnchor(unsigned int _index,
+                             const ignition::math::Vector3d & _anchor)
 {
-  gzerr << "Not implement in Siconos\n";
-  return ignition::math::Vector3d();
+  if (this->childLink)
+    this->childLink->SetEnabled(true);
+  if (this->parentLink)
+    this->parentLink->SetEnabled(true);
+
+  // Anchor position is supplied in world coordinates.  The relation
+  // stores it in ds1 coordinates, so we need to subtract the parent
+  // pose, or child if there is no parent.
+
+  ignition::math::Pose3d pose;
+  if (this->parentLink) pose = this->parentLink->WorldCoGPose();
+  else if (this->childLink) pose = this->childLink->WorldCoGPose();
+
+  auto& points = this->Relation(_index)->points();
+  unsigned int idx = this->RelationPointIndex(_index);
+
+  // World -> parent/child frame
+  auto relAnchor = pose.Rot().RotateVectorReverse(_anchor - pose.Pos());
+
+  if (points.size() > idx)
+    this->Relation(_index)->setPoint(
+      idx, SiconosTypes::ConvertVector3(relAnchor));
+}
+
+//////////////////////////////////////////////////
+ignition::math::Vector3d SiconosJoint::Anchor(unsigned int _index) const
+{
+  // Return anchor in world coordinates.  The relation stores it in
+  // ds1 coordinates, so we need to add the parent pose, or child if
+  // there is no parent.
+
+  ignition::math::Pose3d pose;
+  if (this->parentLink) pose = this->parentLink->WorldCoGPose();
+  else if (this->childLink) pose = this->childLink->WorldCoGPose();
+
+  auto& points = this->Relation(_index)->points();
+  unsigned int idx = this->RelationPointIndex(_index);
+
+  if (points.size() > idx)
+  {
+    auto relAnchor = SiconosTypes::ConvertVector3(points[idx]);
+    return pose.Rot().RotateVector(relAnchor) + pose.Pos();
+    return pose.CoordPositionAdd(SiconosTypes::ConvertVector3(points[idx]));
+  }
+  else
+    return ignition::math::Vector3d();
 }
 
 //////////////////////////////////////////////////
@@ -617,8 +726,8 @@ bool SiconosJoint::SetFriction(unsigned int _index, double _value)
     this->siconosWorld->GetSimulation()->unlink(
       this->jointFriction[_index].interaction);
 
-  // If no limit requested, clear things out and just return
-  if (_value < 0.0)
+  // If no friction requested, clear things out and just return
+  if (_value <= 0.0)
   {
     this->jointFriction[_index] = {};
     return true;
@@ -718,6 +827,11 @@ bool SiconosJoint::SiconosConnect()
 
   GZ_ASSERT(this->siconosWorld, "SiconosWorld pointer is NULL");
 
+  // Memorize body poses at connection time, so that axes and pivot
+  // points can be changed.
+  *this->qBody1 = *ds1->q();
+  if (ds2) this->qBody2 = std11::make_shared<SiconosVector>(*ds2->q());
+
   // Create and link joint interactions
   this->SiconosConnectJoint(ds1, ds2);
 
@@ -748,6 +862,8 @@ bool SiconosJoint::SiconosConnect()
       this->siconosWorld->GetSimulation()->link(fr.interaction, ds1, ds2);
   }
 
+  GZ_ASSERT(this->IsConnected(), "Unsuccessful in connecting joint.");
+
   return true;
 }
 
@@ -758,7 +874,7 @@ void SiconosJoint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
   // Interaction pointer is non-empty, it is linked.
   for (auto & ri : this->relInterPairs)
   {
-    ri.relation->setBasePositions(ds1->q(), ds2 ? ds2->q() : SP::SiconosVector());
+    ri.relation->setBasePositions(this->qBody1, this->qBody2);
 
     GZ_ASSERT(!ri.interaction, "joint already connected");
 
@@ -820,6 +936,36 @@ SP::NewtonEulerJointR SiconosJoint::Relation(unsigned int _index) const
     return relInterPairs[0].relation;
   else
     return SP::NewtonEulerJointR();
+}
+
+//////////////////////////////////////////////////
+unsigned int SiconosJoint::RelationPointIndex(unsigned int _index) const
+{
+  GZ_ASSERT(relInterPairs.size() == 0 || relInterPairs.size() == 1,
+            "should be overridden for joints with multiple relations");
+
+  // If there is a single axis then the default behaviour is fine, but
+  // otherwise we assert in order to force specific joints to override
+  // this, so that Gazebo indexes are correctly matched with Siconos
+  // indexes.
+  GZ_ASSERT(_index == 0, "invalid joint anchor index");
+
+  return _index;
+}
+
+//////////////////////////////////////////////////
+unsigned int SiconosJoint::RelationAxisIndex(unsigned int _index) const
+{
+  GZ_ASSERT(relInterPairs.size() == 0 || relInterPairs.size() == 1,
+            "should be overridden for joints with multiple relations");
+
+  // If there is a single axis then the default behaviour is fine, but
+  // otherwise we assert in order to force specific joints to override
+  // this, so that Gazebo indexes are correctly matched with Siconos
+  // indexes.
+  GZ_ASSERT(_index == 0, "invalid joint axis index");
+
+  return _index;
 }
 
 //////////////////////////////////////////////////

@@ -71,9 +71,20 @@ namespace gazebo
       /// \brief Detach this joint from all bodies
       public: virtual void Detach();
 
+      /// \brief Get the axis of rotation in global coordinate frame.
+      /// \param[in] _index Index of the axis to get.
+      /// \return Axis value for the provided index.
+      public: virtual ignition::math::Vector3d GlobalAxis(unsigned int _index)
+        const;
+
       /// \brief Set the anchor point
       public: virtual void SetAnchor(unsigned int _index,
                                      const ignition::math::Vector3d &_anchor);
+
+      /// \brief Set the axis of rotation where axis is specified in local
+      /// joint frame.
+      public: virtual void SetAxis(const unsigned int _index,
+                                   const ignition::math::Vector3d &_axis);
 
       // Documentation inherited
       public: virtual void SetDamping(unsigned int _index, double _damping);
@@ -143,7 +154,7 @@ namespace gazebo
 
       /// \brief Check if Attach() can be safely called on this joint.
       /// \return True if Attach() can be safely called on this joint.
-      public: virtual bool IsInitialized();
+      public: virtual bool IsInitialized() const;
 
       // Documentation inherited.
       public: virtual void ApplyStiffnessDamping();
@@ -179,6 +190,16 @@ namespace gazebo
       /// \return The NewtonEulerJointR relation assocated with the
       ///         axis.  Not necessarily unique to the desired axis!
       public: virtual SP::NewtonEulerJointR Relation(unsigned int _index) const;
+
+      /// \brief Return the point index associated with this joint's Relation.
+      /// \param[in] _index Index of the joint anchor.
+      /// \return The index of the Relation point for the joint anchor.
+      public: virtual unsigned int RelationPointIndex(unsigned int _index) const;
+
+      /// \brief Return the axis index associated with this joint's Relation.
+      /// \param[in] _index Index of the joint axis.
+      /// \return The index of the Relation axis for the joint axis.
+      public: virtual unsigned int RelationAxisIndex(unsigned int _index) const;
 
       /// \brief Return the Siconos Interaction associated with this joint
       /// \param[in] _index Index of the axis.
@@ -249,6 +270,12 @@ namespace gazebo
 
       /// \brief Remove the Interactions for this joint from the Siconos graph.
       protected: void SiconosDisconnect();
+
+      /// \brief Initial pose of body 1
+      protected: SP::SiconosVector qBody1;
+
+      /// \brief Initial pose of body 2, or nullptr if none.
+      protected: SP::SiconosVector qBody2;
     };
     /// \}
   }

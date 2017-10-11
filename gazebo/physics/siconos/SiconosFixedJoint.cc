@@ -42,6 +42,13 @@ SiconosFixedJoint::SiconosFixedJoint(BasePtr _parent, SP::SiconosWorld _world)
 {
   siconosWorld = _world;
   GZ_ASSERT(siconosWorld, "SiconosWorld pointer is NULL");
+
+  this->siconosFixedJointR = std11::make_shared<FixedJointR>();
+
+  // Put the relation in our pair list, associated Interaction will be
+  // initialized during SiconosConnect().
+  this->relInterPairs.clear();
+  this->relInterPairs.push_back({this->siconosFixedJointR, SP::Interaction()});
 }
 
 //////////////////////////////////////////////////
@@ -60,39 +67,11 @@ void SiconosFixedJoint::Init()
 {
   FixedJoint<SiconosJoint>::Init();
 
-  // Throw an error if no links are given.
-  if (!this->childLink && !this->parentLink)
-  {
-    gzerr << "unable to create siconos hinge without links.\n";
-    return;
-  }
-
-  this->siconosFixedJointR = std11::make_shared<FixedJointR>();
-
-  if (!this->siconosFixedJointR)
-  {
-    gzerr << "unable to create siconos hinge constraint\n";
-    return;
-  }
-
-  // Put the relation in our pair list, associated Interaction will be
-  // initialized during SiconosConnect().
-  this->relInterPairs.clear();
-  this->relInterPairs.push_back({this->siconosFixedJointR, SP::Interaction()});
-
   // Allows access to impulse
   // this->siconosHinge->enableFeedback(true);
 
   // Connect the dynamical systems in the Siconos graph
   this->SiconosConnect();
-}
-
-//////////////////////////////////////////////////
-void SiconosFixedJoint::SetAxis(unsigned int /*_index*/,
-    const ignition::math::Vector3d &/*_axis*/)
-{
-  gzwarn << "SiconosFixedJoint: called method "
-         << "SetAxis that is not valid for joints of type fixed.\n";
 }
 
 //////////////////////////////////////////////////
@@ -124,12 +103,4 @@ void SiconosFixedJoint::SetForceImpl(unsigned int /*_index*/, double /*_effort*/
   gzwarn << "SiconosFixedJoint: called method "
          << "SetForceImpl that is not valid for joints of type fixed.\n";
   return;
-}
-
-//////////////////////////////////////////////////
-ignition::math::Vector3d SiconosFixedJoint::GlobalAxis(unsigned int /*_index*/) const
-{
-  gzwarn << "SiconosFixedJoint: called method "
-         << "GlobalAxis that is not valid for joints of type fixed.\n";
-  return ignition::math::Vector3d();
 }

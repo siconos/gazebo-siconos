@@ -44,7 +44,14 @@ SiconosSliderJoint::SiconosSliderJoint(BasePtr _parent, SP::SiconosWorld _world)
 {
   GZ_ASSERT(_world, "siconos world pointer is NULL");
   this->siconosWorld = _world;
-  this->siconosPrismaticJointR = NULL;
+
+  this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>();
+  this->siconosPrismaticJointR->setAbsolute(false);
+
+  // Put the relation in our pair list, associated Interaction will be
+  // initialized during SiconosConnect().
+  this->relInterPairs.clear();
+  this->relInterPairs.push_back({this->siconosPrismaticJointR, SP::Interaction()});
 }
 
 //////////////////////////////////////////////////
@@ -63,62 +70,7 @@ void SiconosSliderJoint::Init()
 {
   SliderJoint<SiconosJoint>::Init();
 
-  // Get axis unit vector (expressed in world frame).
-  ignition::math::Vector3d axis = this->initialWorldAxis;
-  if (axis == ignition::math::Vector3d::Zero)
-  {
-    gzerr << "axis must have non-zero length, resetting to 0 0 1\n";
-    axis.Set(0, 0, 1);
-  }
-
-  // Initialize pivots to anchorPos, which is expressed in the
-  // world coordinate frame.
-  ignition::math::Vector3d pivot = this->anchorPos;
-
-  // Check if parentLink exists. If not, the parent will be the world.
-  if (this->parentLink)
-  {
-    // Compute relative pose between joint anchor and CoG of parent link.
-    ignition::math::Pose3d pose = this->parentLink->WorldCoGPose();
-    // Subtract CoG position from anchor position, both in world frame.
-    pivot -= pose.Pos();
-    // Rotate pivot offset and axis into body-fixed frame of parent.
-    pivot = pose.Rot().RotateVectorReverse(pivot);
-    axis = pose.Rot().RotateVectorReverse(axis);
-    axis = axis.Normalize();
-  }
-  // Check if childLink exists. If not, the child will be the world.
-  if (this->childLink)
-  {
-    // Compute relative pose between joint anchor and CoG of child link.
-    ignition::math::Pose3d pose = this->childLink->WorldCoGPose();
-    // Subtract CoG position from anchor position, both in world frame.
-    pivot -= pose.Pos();
-    // Rotate pivot offset and axis into body-fixed frame of child.
-    pivot = pose.Rot().RotateVectorReverse(pivot);
-    axis = pose.Rot().RotateVectorReverse(axis);
-    axis = axis.Normalize();
-  }
-  // Throw an error if no links are given.
-  else
-  {
-    gzerr << "joint without links\n";
-    return;
-  }
-
-  this->siconosPrismaticJointR = std11::make_shared<PrismaticJointR>(
-    SiconosTypes::ConvertVector3(axis), false /* not absoluteRef */);
-
-  if (!this->siconosPrismaticJointR)
-  {
-    gzerr << "unable to create siconos slider joint\n";
-    return;
-  }
-
-  // Put the relation in our pair list, associated Interaction will be
-  // initialized during SiconosConnect().
-  this->relInterPairs.clear();
-  this->relInterPairs.push_back({this->siconosPrismaticJointR, SP::Interaction()});
+  // Joint axis already set up by SiconosJoint::SetAxis()
 
   // Apply joint translation limits here.
   GZ_ASSERT(this->sdf != NULL, "Joint sdf member is NULL");
@@ -168,36 +120,6 @@ void SiconosSliderJoint::SetVelocity(unsigned int _index, double _angle)
 }
 
 //////////////////////////////////////////////////
-ignition::math::Vector3d SiconosSliderJoint::Anchor(unsigned int /*_index*/) const
-{
-  // TODO
-  // btTransform trans = this->siconosHinge->getAFrame();
-  // trans.getOrigin() +=
-  //   this->siconosHinge->getRigidBodyA().getCenterOfMassTransform().getOrigin();
-  // return ignition::math::Vector3d(trans.getOrigin().getX(),
-  //     trans.getOrigin().getY(), trans.getOrigin().getZ());
-  return ignition::math::Vector3d(0,0,0);
-}
-
-//////////////////////////////////////////////////
-void SiconosSliderJoint::SetAxis(unsigned int /*_index*/,
-                                 const ignition::math::Vector3d &_axis)
-{
-  // Note that _axis is given in a world frame,
-  // but siconos uses a body-fixed frame
-  if (!this->siconosPrismaticJointR)
-  {
-    // this hasn't been initialized yet, store axis in initialWorldAxis
-    ignition::math::Quaterniond axisFrame = this->AxisFrame(0);
-    this->initialWorldAxis = axisFrame.RotateVector(_axis);
-  }
-  else
-  {
-    gzerr << "SetAxis for existing joint is not implemented\n";
-  }
-}
-
-//////////////////////////////////////////////////
 void SiconosSliderJoint::SetDamping(unsigned int /*index*/,
                                     const double /*_damping*/)
 {
@@ -235,36 +157,6 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
       link1->AddRelativeForce(axis * _effort);
     }
   }
-}
-
-//////////////////////////////////////////////////
-ignition::math::Vector3d SiconosSliderJoint::GlobalAxis(unsigned int _index) const
-{
-  ignition::math::Vector3d result = this->initialWorldAxis;
-
-  if (this->siconosPrismaticJointR)
-  {
-    GZ_ASSERT(_index < this->siconosPrismaticJointR->numberOfDoF(),
-              "SiconosSliderJoint::GlobalAxis(): axis index too large.");
-
-    SiconosLinkPtr link;
-    if (this->parentLink) {
-      link = boost::static_pointer_cast<SiconosLink>(this->parentLink);
-    }
-    else if (this->childLink) {
-      link = boost::static_pointer_cast<SiconosLink>(this->childLink);
-    }
-    if (link) {
-      BlockVector bv(1, 7);
-      bv.setVectorPtr(0, link->GetSiconosBodyDS()->q());
-
-      SiconosVector v(3);
-      this->siconosPrismaticJointR->normalDoF(v, bv, _index, false);
-      result = SiconosTypes::ConvertVector3(v);
-    }
-  }
-
-  return result;
 }
 
 //////////////////////////////////////////////////

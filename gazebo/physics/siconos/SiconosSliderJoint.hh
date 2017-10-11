@@ -49,13 +49,6 @@ namespace gazebo
       protected: virtual void Init();
 
       // Documentation inherited.
-      public: virtual ignition::math::Vector3d Anchor(unsigned int _index) const;
-
-      // Documentation inherited.
-      public: virtual void SetAxis(unsigned int _index,
-                  const ignition::math::Vector3d &_axis);
-
-      // Documentation inherited.
       public: virtual void SetDamping(unsigned int _index,
                   const double _damping);
 
@@ -66,9 +59,6 @@ namespace gazebo
       public: virtual void SetVelocity(unsigned int _index, double _angle);
 
       // Documentation inherited.
-      public: virtual ignition::math::Vector3d GlobalAxis(unsigned int _index) const;
-
-      // Documentation inherited.
       public: virtual double PositionImpl(unsigned int _index) const;
 
       // Documentation inherited.
@@ -76,10 +66,6 @@ namespace gazebo
 
       /// \brief Pointer to siconos slider constraint.
       private: SP::PrismaticJointR siconosPrismaticJointR;
-
-      /// \brief Initial value of joint axis, expressed as unit vector
-      ///        in world frame.
-      private: ignition::math::Vector3d initialWorldAxis;
     };
 
   /// \}
