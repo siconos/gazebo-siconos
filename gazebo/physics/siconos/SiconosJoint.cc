@@ -143,25 +143,31 @@ LinkPtr SiconosJoint::GetJointLink(unsigned int _index) const
 {
   LinkPtr result;
 
-  if (_index < this->relInterPairs.size()
-      || !this->relInterPairs[_index].interaction)
+  if (!IsConnected())
     gzthrow("Attach bodies to the joint first");
 
-  if (_index == 0 || _index == 1)
-  {
-    SiconosLinkPtr siconosLink1 =
-      boost::static_pointer_cast<SiconosLink>(this->childLink);
+  // Undocumented behaviour, so observing BulletJoint and ODEJoint,
+  // which seem to be almost the same:
+  // * If parent is link, child is world:
+  //   - return parent for both _index=0 and _index=1
+  // * If parent is world, child is link:
+  //   - return child for _index=0, null for _index=1 (ODE)
+  //   - return parent for both _index=0 and _index=1 (Bullet)
+  // * If parent is link, child is link:
+  //   - return child for _index=0, parent for _index=1 (ODE)
+  //   - return parent for both _index=0 and _index=1 (Bullet)
 
-    SiconosLinkPtr siconosLink2 =
-      boost::static_pointer_cast<SiconosLink>(this->parentLink);
+  // Decision: Assume _index=0 is child, _index=1 is parent, return
+  // null in case one of these is world.
 
-    // btRigidBody rigidLink = this->constraint->getRigidBodyA();
+  SiconosLinkPtr siconosLink1 =
+    boost::static_pointer_cast<SiconosLink>(this->childLink);
 
-    // if (siconosLink1 && rigidLink.getUserPointer() == siconosLink1.get())
-    //   result = this->childLink;
-    // else if (siconosLink2)
-      result = this->parentLink;
-  }
+  SiconosLinkPtr siconosLink2 =
+    boost::static_pointer_cast<SiconosLink>(this->parentLink);
+
+  if (_index==0 && siconosLink1) result = siconosLink1;
+  if (_index==1 && siconosLink2) result = siconosLink2;
 
   return result;
 }
