@@ -47,6 +47,11 @@ SiconosHinge2Joint::SiconosHinge2Joint(BasePtr _parent, SP::SiconosWorld _world)
   this->siconosPivotJointR2 = std11::make_shared<PivotJointR>();
   this->siconosPivotJointR2->setAbsolute(false);
 
+  // Second pivot is relative to coupler, so always 0,0,0
+  auto z(std11::make_shared<SiconosVector>(3));
+  z->zero();
+  this->siconosPivotJointR2->setPoint(0, z);
+
   // Put the relation in our pair list, associated Interaction will be
   // initialized during SiconosConnect().
   this->relInterPairs.clear();
@@ -92,17 +97,6 @@ void SiconosHinge2Joint::Init()
 
   // Connect the dynamical systems in the Siconos graph
   this->SiconosConnect();
-}
-
-//////////////////////////////////////////////////
-ignition::math::Vector3d SiconosHinge2Joint::Anchor(unsigned int /*_index*/) const
-{
-  // btTransform trans = this->siconosHinge->getAFrame();
-  // trans.getOrigin() +=
-  //   this->siconosHinge->getRigidBodyA().getCenterOfMassTransform().getOrigin();
-  // return ignition::math::Vector3d(trans.getOrigin().getX(),
-  //     trans.getOrigin().getY(), trans.getOrigin().getZ());
-  return ignition::math::Vector3d(0,0,0);
 }
 
 //////////////////////////////////////////////////
@@ -219,6 +213,12 @@ void SiconosHinge2Joint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
   GZ_ASSERT(!ri2.interaction, "joint already connected");
   GZ_ASSERT(!dsc, "joint already has a coupler");
 
+  // Check that all required points and anchors have been provided.
+  GZ_ASSERT(ri1.relation->points()[0], "pivot 1 point missing");
+  GZ_ASSERT(ri1.relation->axes()[0], "pivot 1 axis missing");
+  GZ_ASSERT(ri2.relation->points()[0], "pivot 2 point missing");
+  GZ_ASSERT(ri2.relation->axes()[0], "pivot 2 axis missing");
+
   // Create coupler in ds1 frame plus anchor.  Note: Since the coupler
   // has a very small mass, it *will* affect the dynamical system!
   // One reason why this implementation is a stand-in for a proper
@@ -233,7 +233,6 @@ void SiconosHinge2Joint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
   ri1.relation->setBasePositions(ds1->q(), dsc->q());
 
   ri2.relation->setBasePositions(dsc->q(), ds2 ? ds2->q() : SP::SiconosVector());
-BUG: SetAnchor never called or what? No first point.  Should do GZ_ASSERT on all required points and anchors.
 
   // Create a Siconos Interacton with an EqualityConditionNSL
   int nc = ri1.relation->numberOfConstraints();
@@ -248,6 +247,12 @@ BUG: SetAnchor never called or what? No first point.  Should do GZ_ASSERT on all
   // Add the coupler to the NSDS
   this->siconosWorld->GetSimulation()->nonSmoothDynamicalSystem()
     ->insertDynamicalSystem(dsc);
+
+  // Initialize its integrator
+  this->siconosWorld->GetSimulation()->prepareIntegratorForDS(
+      this->siconosWorld->GetOneStepIntegrator(), dsc,
+      this->siconosWorld->GetModel(),
+      this->siconosWorld->GetSimulation()->nextTime());
 
   // Add the interactions to the NSDS
   this->siconosWorld->GetSimulation()->link(ri1.interaction, ds1, dsc);

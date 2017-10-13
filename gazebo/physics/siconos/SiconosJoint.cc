@@ -267,6 +267,7 @@ void SiconosJoint::SetupJointFeedback()
 void SiconosJoint::SetAxis(const unsigned int _index,
                            const ignition::math::Vector3d &_axis)
 {
+  std::cout << "[" << GetName() << "] ";
   std::cout << "SetAxis(" << _index << ", [" << _axis << "])" << std::endl;
   if (!this->Relation(_index))
     return;
@@ -458,6 +459,7 @@ ignition::math::Vector3d SiconosJoint::GlobalAxis(unsigned int _index) const
 void SiconosJoint::SetAnchor(unsigned int _index,
                              const ignition::math::Vector3d & _anchor)
 {
+  std::cout << "[" << GetName() << "] ";
   std::cout << "SetAnchor(" << _index << ", [" << _anchor << "])" << std::endl;
   if (this->childLink)
     this->childLink->SetEnabled(true);
