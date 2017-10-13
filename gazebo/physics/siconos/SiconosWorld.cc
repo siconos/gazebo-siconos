@@ -180,14 +180,14 @@ void SiconosWorld::setup()
     this->impl->osnspb = _osnspb;
 
     // -- Some configuration (TODO: parameters from SDF)
-    _osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
+    _osnspb->numericsSolverOptions()->iparam[0] = 10; // Max number of iterations
     _osnspb->numericsSolverOptions()->dparam[0] = 1e-5; // Tolerance
     _osnspb->numericsSolverOptions()->iparam[1] = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
     _osnspb->numericsSolverOptions()->iparam[14] = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
     _osnspb->numericsSolverOptions()->internalSolvers[1].solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
-    _osnspb->numericsSolverOptions()->internalSolvers[1].iparam[0] = 100;
+    _osnspb->numericsSolverOptions()->internalSolvers[1].iparam[0] = 10;
     _osnspb->setMaxSize(16384);                         // max number of interactions
-    _osnspb->setMStorageType(1);                        // Sparse storage
+    _osnspb->setMStorageType(0);                        // Dense storage
     _osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
     _osnspb->setKeepLambdaAndYState(true);              // inject previous solution
 
