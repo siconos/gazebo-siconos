@@ -691,12 +691,13 @@ double SiconosJoint::GetParam(const std::string &_key,
     gzerr << "Invalid index [" << _index << "]" << std::endl;
     return 0;
   }
-  GZ_ASSERT(_index < this->jointFriction.size(),
-            "_index < this->jointFriction.size() in SiconosJoint::GetParam()");
 
   if (_key == "friction")
   {
-    return this->jointFriction[_index].value;
+    if (_index < this->jointFriction.size())
+      return this->jointFriction[_index].value;
+    else
+      return 0.0;
   }
   return Joint::GetParam(_key, _index);
 }
