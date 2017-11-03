@@ -137,6 +137,10 @@ void SiconosSliderJoint::SetForceImpl(unsigned int _index, double _effort)
     SiconosLinkPtr link0(boost::static_pointer_cast<SiconosLink>(this->parentLink));
     SiconosLinkPtr link1(boost::static_pointer_cast<SiconosLink>(this->childLink));
 
+    // Can be called between Load and Init, so check if body exists
+    if (link0 && !link0->GetSiconosBodyDS()) return;
+    if (link1 && !link1->GetSiconosBodyDS()) return;
+
     BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
     unsigned int i = 0;
     if (link0) bv.setVectorPtr(i++, link0->GetSiconosBodyDS()->q());
@@ -184,6 +188,10 @@ double SiconosSliderJoint::PositionImpl(unsigned int _index) const
     }
     else
       return 0.0;
+
+    // Can be called between Load and Init, so check if body exists
+    if (link0 && !link0->GetSiconosBodyDS()) return 0.0;
+    if (link1 && !link1->GetSiconosBodyDS()) return 0.0;
 
     BlockVector bv((link0 ? 1 : 0) + (link1 ? 1 : 0), 7);
     unsigned int i = 0;
