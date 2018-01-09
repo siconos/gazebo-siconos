@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <string>
+#include <sstream>
 
 #include "gazebo/physics/siconos/SiconosPhysics.hh"
 
@@ -96,6 +97,18 @@ void SiconosPhysics::Load(sdf::ElementPtr _sdf)
   if (g == ignition::math::Vector3d::Zero)
     gzwarn << "Gravity vector is (0, 0, 0). Objects will float.\n";
   this->SetGravity(g);
+
+  // Since SDF does not yet support Siconos, we borrow a string
+  // parameter from dart to identify a configuration file.
+  sdf::ElementPtr dartElem = this->sdf->GetElement("dart");
+  sdf::ElementPtr solverElem = dartElem->GetElement("solver");
+  sdf::ElementPtr solverTypeElem = solverElem->GetElement("solver_type");
+  sdf::ParamPtr st = solverTypeElem->GetValue();
+  std::string stype;
+  if (st->Get<std::string>(stype)) {
+    const char *envconfig = getenv("GZ_SICONOS_CONFIG");
+    this->siconosWorld->config = (envconfig ? envconfig : "") + (";" + stype);
+  }
 
   // Need to initialize the model which will receive created DSs.
   // Note: Doing this in Init() is too late!

@@ -57,8 +57,12 @@ struct SiconosWorldImpl
   SP::TimeDiscretisation timedisc;
 
   /// \brief The Siconos OneStepNonSmoothProblem for this
-  ///        simulation's constraints
+  ///        simulation's constraints (velocity level)
   SP::OneStepNSProblem osnspb;
+
+  /// \brief The Siconos OneStepNonSmoothProblem for this
+  ///        simulation's constraints (position level)
+  SP::MLCPProjectOnConstraints osnspb_pos;
 
   /// \brief The Siconos broadphase collision manager
   SP::GazeboCollisionManager manager;
@@ -153,6 +157,123 @@ void SiconosWorld::setup()
   // User-defined main parameters (TODO: parameters from SDF)
   double theta = 1.0;              // theta for MoreauJeanOSI integrator
 
+  int Newton_max_iter=1;
+  int Newton_tolerance=1e-10;
+  bool Newton_update_interactions=false;
+  bool Newton_warn_nonconverge=false;
+  int itermax=100;
+  double tolerance=1e-4;
+  int error_evaluation=SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
+  int solver_filter=SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
+  int projection_itermax=3;
+  double projection_tolerance=1e-4;
+  double projection_tolerance_unilateral=1e-4;
+  bool numerics_verbose=false;
+  int internal_solverId=SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
+  int internal_iterations=10;
+  int max_interactions=16384;
+  std::string osiType="MoreauJeanOSI";
+  int keep_lambda=true;
+
+  auto stobool = [](std::string x)->long int{if (x=="true") return 1;
+                                             if (x=="false") return 0;
+                                             return std::stol(x);};
+
+  std::string pair, key, value;
+  std::istringstream ss(this->config);
+  while (std::getline(ss, pair, ';')) {
+    std::istringstream ps(pair);
+    std::getline(ps, key, '=');
+    ps >> value;
+    if (key=="theta")
+    {
+      theta = std::stod(value);
+    }
+    else if (key=="Newton_max_iter")
+    {
+      Newton_max_iter = std::stol(value);
+    }
+    else if (key=="Newton_tolerance")
+    {
+      Newton_tolerance = std::stod(value);
+    }
+    else if (key=="Newton_update_interactions")
+    {
+      Newton_update_interactions = std::stol(value);
+    }
+    else if (key=="Newton_warn_nonconverge")
+    {
+      Newton_warn_nonconverge = stobool(value);
+    }
+    else if (key=="itermax")
+    {
+      itermax = std::stol(value);
+    }
+    else if (key=="tolerance")
+    {
+      tolerance = std::stod(value);
+    }
+    else if (key=="error_evaluation")
+    {
+      if (value=="full")
+        error_evaluation = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_FULL;
+      else if (value=="light-full-final")
+        error_evaluation = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT_WITH_FULL_FINAL;
+      else if (value=="light")
+        error_evaluation = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
+      else if (value=="adaptive")
+        error_evaluation = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_ADAPTIVE;
+    }
+    else if (key=="solver_filter")
+    {
+        if (stobool(value))
+          solver_filter = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
+        else
+          solver_filter = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_FALSE;
+    }
+    else if (key=="projection_itermax")
+    {
+      projection_itermax = std::stol(value);
+    }
+    else if (key=="projection_tolerance")
+    {
+      projection_tolerance = std::stod(value);
+    }
+    else if (key=="projection_tolerance_unilateral")
+    {
+      projection_tolerance_unilateral = std::stod(value);
+    }
+    else if (key=="numerics_verbose")
+    {
+      numerics_verbose = stobool(value);
+    }
+    else if (key=="internal_solverId")
+    {
+      if (value=="nsn")
+        internal_solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN;
+      else if (value=="nsn-gp")
+        internal_solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP;
+      else if (value=="nsn-gp-hybrid")
+        internal_solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
+    }
+    else if (key=="internal_iterations")
+    {
+      internal_iterations = std::stol(value);
+    }
+    else if (key=="max_interactions")
+    {
+      max_interactions = std::stol(value);
+    }
+    else if (key=="osiType")
+    {
+      osiType = value;
+    }
+    else if (key=="keep_lambda")
+    {
+      keep_lambda = stobool(value);
+    }
+  }
+
   // -----------------------------------------
   // --- Dynamical systems && interactions ---
   // -----------------------------------------
@@ -160,7 +281,12 @@ void SiconosWorld::setup()
   try
   {
     // -- OneStepIntegrators --
-    this->impl->osi.reset(new MoreauJeanOSI(theta));
+    if (osiType=="MoreauJeanOSI")
+      this->impl->osi.reset(new MoreauJeanOSI(theta));
+    else if (osiType=="MoreauJeanDirectProjectionOSI")
+      this->impl->osi.reset(new MoreauJeanDirectProjectionOSI(theta));
+    else
+      assert(false);
 
     // -- Model --
     this->impl->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
@@ -180,16 +306,16 @@ void SiconosWorld::setup()
     this->impl->osnspb = _osnspb;
 
     // -- Some configuration (TODO: parameters from SDF)
-    _osnspb->numericsSolverOptions()->iparam[0] = 1000; // Max number of iterations
-    _osnspb->numericsSolverOptions()->dparam[0] = 1e-5; // Tolerance
-    _osnspb->numericsSolverOptions()->iparam[1] = SICONOS_FRICTION_3D_NSGS_ERROR_EVALUATION_LIGHT;
-    _osnspb->numericsSolverOptions()->iparam[14] = SICONOS_FRICTION_3D_NSGS_FILTER_LOCAL_SOLUTION_TRUE;
-    _osnspb->numericsSolverOptions()->internalSolvers[1].solverId = SICONOS_FRICTION_3D_ONECONTACT_NSN_GP_HYBRID;
-    _osnspb->numericsSolverOptions()->internalSolvers[1].iparam[0] = 100;
-    _osnspb->setMaxSize(16384);                         // max number of interactions
-    _osnspb->setMStorageType(1);                        // Sparse storage
-    _osnspb->setNumericsVerboseMode(0);                 // 0 silent, 1 verbose
-    _osnspb->setKeepLambdaAndYState(true);              // inject previous solution
+    _osnspb->numericsSolverOptions()->iparam[0] = itermax; // Max number of iterations
+    _osnspb->numericsSolverOptions()->dparam[0] = tolerance; // Tolerance
+    _osnspb->numericsSolverOptions()->iparam[1] = error_evaluation;
+    _osnspb->numericsSolverOptions()->iparam[14] = solver_filter;
+    _osnspb->numericsSolverOptions()->internalSolvers[1].solverId = internal_solverId;
+    _osnspb->numericsSolverOptions()->internalSolvers[1].iparam[0] = internal_iterations;
+    _osnspb->setMaxSize(max_interactions);             // max number of interactions
+    _osnspb->setMStorageType(1);                       // Sparse storage
+    _osnspb->setNumericsVerboseMode(numerics_verbose); // 0 silent, 1 verbose
+    _osnspb->setKeepLambdaAndYState(keep_lambda);      // inject previous solution
 
     // --- Simulation initialization ---
 
@@ -198,20 +324,48 @@ void SiconosWorld::setup()
     SiconosBulletOptions options;
     this->impl->manager.reset(new GazeboCollisionManager(options, this->impl));
 
-    // -- MoreauJeanOSI Time Stepping for body mechanics
-    this->impl->simulation.reset(new TimeStepping(this->impl->timedisc));
+    if (osiType=="MoreauJeanOSI")
+    {
+      // -- MoreauJeanOSI Time Stepping for body mechanics
+      this->impl->simulation = std11::make_shared<TimeStepping>(this->impl->timedisc);
 
-    this->impl->simulation->insertIntegrator(this->impl->osi);
-    this->impl->simulation->insertNonSmoothProblem(this->impl->osnspb);
+      this->impl->simulation->insertIntegrator(this->impl->osi);
+      this->impl->simulation->insertNonSmoothProblem(this->impl->osnspb);
+    }
+    else if (osiType=="MoreauJeanDirectProjectionOSI")
+    {
+      SP::MLCPProjectOnConstraints _osnspb_pos = this->impl->osnspb_pos =
+        std11::make_shared<MLCPProjectOnConstraints>(SICONOS_MLCP_ENUM, 1.0);
+
+      _osnspb_pos->numericsSolverOptions()->iparam[0]=itermax;
+      _osnspb_pos->numericsSolverOptions()->dparam[0]=tolerance;
+      _osnspb_pos->setMaxSize(max_interactions);
+      _osnspb_pos->setMStorageType(0); // "not yet implemented for sparse storage"
+      _osnspb_pos->setNumericsVerboseMode(numerics_verbose);
+      _osnspb_pos->setKeepLambdaAndYState(keep_lambda);
+
+      // -- MoreauJeanDirectProjectionOSI Time Stepping for body mechanics
+      SP::TimeSteppingDirectProjection simulation;
+      this->impl->simulation = simulation =
+        std11::make_shared<TimeSteppingDirectProjection>(
+          this->impl->timedisc, this->impl->osi, _osnspb, _osnspb_pos);
+
+      simulation->setProjectionMaxIteration(projection_itermax);
+      simulation->setConstraintTolUnilateral(projection_tolerance_unilateral);
+      simulation->setConstraintTol(projection_tolerance);
+    }
+
     this->impl->simulation->insertInteractionManager(this->impl->manager);
 
     this->impl->simulation->setNewtonOptions(SICONOS_TS_NONLINEAR);
+    this->impl->simulation->setNewtonMaxIteration(Newton_max_iter);
+    this->impl->simulation->setNewtonTolerance(Newton_tolerance);
 
-    this->impl->simulation->setNewtonMaxIteration(
-      boost::any_cast<int>(this->impl->physics->GetParam("newton_iters")));
-
-    // TODO: parameters from SDF
-    this->impl->simulation->setNewtonTolerance(1e-10);
+    // Quiet the Newton loop
+    this->impl->simulation->setWarnOnNonConvergence(Newton_warn_nonconverge);
+    if (!Newton_warn_nonconverge) {
+      this->impl->simulation->setCheckSolverFunction([](int, Simulation*){});
+    }
 
     this->impl->model->setSimulation(this->impl->simulation);
     this->impl->model->initialize();

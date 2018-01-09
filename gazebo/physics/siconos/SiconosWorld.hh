@@ -41,6 +41,9 @@ class SiconosWorld
   /// \brief Compute a step of the simulation
   public: virtual void compute();
 
+  /// \brief This variable is temporary until SDF support is added
+  public: std::string config;
+
   /// \brief Gravity
   public: void SetGravity(const ignition::math::Vector3<double> &gravity);
 
