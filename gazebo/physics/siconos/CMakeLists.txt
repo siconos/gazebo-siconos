@@ -16,7 +16,7 @@ set (sources ${sources}
   siconos/SiconosPhysics.cc
   # SiconosPolylineShape.cc
   siconos/SiconosRayShape.cc
-  # SiconosScrewJoint.cc
+  siconos/SiconosScrewJoint.cc
   siconos/SiconosSliderJoint.cc
   siconos/SiconosSurfaceParams.cc
   # SiconosUniversalJoint.cc
@@ -46,7 +46,7 @@ set (headers
   SiconosPlaneShape.hh
   # SiconosPolylineShape.hh
   SiconosRayShape.hh
-  # SiconosScrewJoint.hh
+  SiconosScrewJoint.hh
   SiconosSliderJoint.hh
   SiconosSphereShape.hh
   # SiconosSurfaceParams.hh
