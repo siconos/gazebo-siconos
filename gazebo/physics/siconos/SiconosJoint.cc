@@ -930,6 +930,22 @@ void SiconosJoint::SiconosDisconnect()
       this->siconosWorld->GetSimulation()->unlink(ri.interaction);
     ri.interaction.reset();
   }
+
+  // See note in the function body, below.
+  SiconosDisconnectJoint();
+}
+
+//////////////////////////////////////////////////
+void SiconosJoint::SiconosDisconnectJoint()
+{
+  // Note: For symmetry with SiconosConnectJoint() we would move
+  // unlink() calls on the joint Interactions here, however I cannot
+  // think of a good reason why it would be necessary to override
+  // this.  (Only need special treatment of which bodies are which at
+  // link() time.)  So for now this is just a hook for after
+  // Interactions are unlinked, e.g. for Hinge2 to handle the extra
+  // coupler body, but could be changed if needed by some joints in
+  // the future to do the actual unlinking.
 }
 
 //////////////////////////////////////////////////

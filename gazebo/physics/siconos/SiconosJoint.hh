@@ -271,6 +271,11 @@ namespace gazebo
       /// \brief Remove the Interactions for this joint from the Siconos graph.
       protected: void SiconosDisconnect();
 
+      /// \brief Called by SiconosDisconnect() after unlinking the
+      /// joint-related Interactions; should be not be called
+      /// externally, but may be overridden by individual joints.
+      protected: virtual void SiconosDisconnectJoint();
+
       /// \brief Initial pose of body 1
       protected: SP::SiconosVector qBody1;
 

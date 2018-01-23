@@ -53,6 +53,7 @@
 #include "gazebo/physics/siconos/SiconosMeshShape.hh"
 
 #include "gazebo/physics/siconos/SiconosHingeJoint.hh"
+#include "gazebo/physics/siconos/SiconosHinge2Joint.hh"
 #include "gazebo/physics/siconos/SiconosSliderJoint.hh"
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
 #include "gazebo/physics/siconos/SiconosBallJoint.hh"
@@ -336,6 +337,8 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
 
   if (_type == "revolute")
     joint.reset(new SiconosHingeJoint(_parent, this->siconosWorld));
+  else if (_type == "revolute2")
+    joint.reset(new SiconosHinge2Joint(_parent, this->siconosWorld));
   else if (_type == "prismatic")
     joint.reset(new SiconosSliderJoint(_parent, this->siconosWorld));
   else if (_type == "fixed")
