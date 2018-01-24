@@ -20,7 +20,7 @@ USER root
 # First install packages needed for running, to be a common layer
 # between rebuilds
 RUN \
-  apt-get update -y && apt-get install -y \
+  apt-get update -y && apt-get install -y --force-yes \
     lp-solve libhdf5-10 libbulletcollision2.83.6 \
     libbulletdynamics2.83.6 libbulletfileloader2.83.6 \
     liblinearmath2.83.6 libgl1-mesa-glx libglu1-mesa libglapi-mesa \
@@ -36,7 +36,7 @@ RUN \
 # Now install packages needed for building:
 # build, install, and uninstall them all in one step.
 RUN \
-  apt-get update -y && apt-get install -y \
+  apt-get update -y && apt-get install -y --force-yes \
     git-core wget make cmake libboost-all-dev libgmp-dev swig3.0 \
     libcppunit-dev gcc gfortran g++ libblas-dev liblapack-dev \
     libatlas-base-dev libatlas-dev lp-solve liblpsolve55-dev \
@@ -51,13 +51,17 @@ RUN \
   cd ~ && \
   git clone http://github.com/siconos/siconos.git && \
   cd ~/siconos && \
-  git checkout 4.1.x && \
+  git checkout  master && \
   mkdir -p bld && cd bld && \
   cmake .. -DWITH_DOXY2SWIG=OFF -DDEV_MODE=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DWITH_MECHANISMS=OFF -DWITH_DOCUMENTATION=OFF -DWITH_BULLET=ON -DWITH_SERIALIZATION=OFF -DWITH_GENERATION=OFF -DWITH_TESTING=OFF -DWITH_PYTHON_WRAPPER=OFF -DCOMPONENTS='externals;numerics;kernel;mechanics' && \
   make -j5 && \
   make install && \
   cd ~ && rm -rf siconos && \
   gem install protobuf && \
+  cd ~ && hg clone https://bitbucket.org/ignitionrobotics/ign-cmake && \
+  cd ~/ign-cmake && mkdir bld && cd bld && \
+  cmake .. -DENABLE_TESTS_COMPILATION=NO -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
+  make -j5 && make install && cd ~ && rm -rf ign-cmake && \
   cd ~ && hg clone https://bitbucket.org/ignitionrobotics/ign-math && \
   cd ~/ign-math && hg up ign-math3 && mkdir bld && cd bld && \
   cmake .. -DENABLE_TESTS_COMPILATION=NO -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
@@ -67,11 +71,11 @@ RUN \
   cmake .. -DENABLE_TESTS_COMPILATION=NO -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
   make -j5 && make install && cd ~ && rm -rf ign-tools && \
   cd ~ && hg clone https://bitbucket.org/ignitionrobotics/ign-msgs && \
-  cd ~/ign-msgs && mkdir bld && cd bld && \
+  cd ~/ign-msgs && hg up ign-msgs0 && mkdir bld && cd bld && \
   cmake .. -DENABLE_TESTS_COMPILATION=NO -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
   make -j5 && make install && cd ~ && rm -rf ign-msgs && \
   cd ~ && hg clone https://bitbucket.org/ignitionrobotics/ign-transport && \
-  cd ~/ign-transport && mkdir bld && cd bld && \
+  cd ~/ign-transport && hg up ign-transport3 && mkdir bld && cd bld && \
   cmake .. -DENABLE_TESTS_COMPILATION=NO -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
   make -j5 && make install && cd ~ && rm -rf ign-transport && \
   cd ~ && hg clone https://bitbucket.org/osrf/sdformat && \
