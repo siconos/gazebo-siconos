@@ -844,7 +844,7 @@ bool SiconosJoint::SiconosConnect()
 
   // Don't process the other relations if something went wrong.
   if (!IsConnected()) {
-    gzerr << "Joint " << GetName() << " did not connect correctly.";
+    gzerr << "Joint " << GetName() << " did not connect correctly.\n";
     return false;
   }
 
