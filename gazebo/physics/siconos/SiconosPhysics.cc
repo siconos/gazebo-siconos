@@ -56,6 +56,7 @@
 #include "gazebo/physics/siconos/SiconosHinge2Joint.hh"
 #include "gazebo/physics/siconos/SiconosSliderJoint.hh"
 #include "gazebo/physics/siconos/SiconosScrewJoint.hh"
+#include "gazebo/physics/siconos/SiconosGearboxJoint.hh"
 #include "gazebo/physics/siconos/SiconosFixedJoint.hh"
 #include "gazebo/physics/siconos/SiconosBallJoint.hh"
 
@@ -344,6 +345,8 @@ JointPtr SiconosPhysics::CreateJoint(const std::string &_type,
     joint.reset(new SiconosSliderJoint(_parent, this->siconosWorld));
   else if (_type == "screw")
     joint.reset(new SiconosScrewJoint(_parent, this->siconosWorld));
+  else if (_type == "gearbox")
+    joint.reset(new SiconosGearboxJoint(_parent, this->siconosWorld));
   else if (_type == "fixed")
     joint.reset(new SiconosFixedJoint(_parent, this->siconosWorld));
   else if (_type == "ball")

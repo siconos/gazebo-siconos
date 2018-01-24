@@ -43,6 +43,7 @@ namespace gazebo
     class SiconosPhysics;
     class SiconosSurfaceParams;
     class SiconosRayShape;
+    class SiconosJoint;
 
     typedef boost::shared_ptr<SiconosCollision> SiconosCollisionPtr;
     typedef boost::shared_ptr<SiconosLink> SiconosLinkPtr;
@@ -50,6 +51,7 @@ namespace gazebo
     typedef boost::shared_ptr<SiconosPhysics> SiconosPhysicsPtr;
     typedef boost::shared_ptr<SiconosSurfaceParams> SiconosSurfaceParamsPtr;
     typedef boost::shared_ptr<SiconosRayShape> SiconosRayShapePtr;
+    typedef boost::shared_ptr<SiconosJoint> SiconosJointPtr;
 
     class GZ_PHYSICS_VISIBLE SiconosTypes {
       /// \brief Convert a SiconosVector to a gazebo Vector3.
