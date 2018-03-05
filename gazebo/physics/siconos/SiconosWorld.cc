@@ -50,11 +50,11 @@ struct SiconosWorldImpl
   /// \brief The Siconos OneStepIntegrator for this simulation
   SP::OneStepIntegrator osi;
 
-  /// \brief The Siconos Model for this simulation
-  SP::Model model;
-
   /// \brief The Siconos TimeDiscretisation for this simulation
   SP::TimeDiscretisation timedisc;
+
+  /// \brief The Siconos NonSmoothDynamicalSystem for this simulation
+  SP::NonSmoothDynamicalSystem nsds;
 
   /// \brief The Siconos OneStepNonSmoothProblem for this
   ///        simulation's constraints (velocity level)
@@ -288,8 +288,9 @@ void SiconosWorld::setup()
     else
       assert(false);
 
-    // -- Model --
-    this->impl->model.reset(new Model(0, std::numeric_limits<double>::infinity()));
+    // -- Non-Smooth Dynamical System --
+    this->impl->nsds = std11::make_shared<NonSmoothDynamicalSystem>(
+      0, std::numeric_limits<double>::infinity());
 
     // ------------------
     // --- Simulation ---
@@ -327,7 +328,8 @@ void SiconosWorld::setup()
     if (osiType=="MoreauJeanOSI")
     {
       // -- MoreauJeanOSI Time Stepping for body mechanics
-      this->impl->simulation = std11::make_shared<TimeStepping>(this->impl->timedisc);
+      this->impl->simulation = std11::make_shared<TimeStepping>(this->impl->nsds,
+                                                                this->impl->timedisc);
 
       this->impl->simulation->insertIntegrator(this->impl->osi);
       this->impl->simulation->insertNonSmoothProblem(this->impl->osnspb);
@@ -348,7 +350,8 @@ void SiconosWorld::setup()
       SP::TimeSteppingDirectProjection simulation;
       this->impl->simulation = simulation =
         std11::make_shared<TimeSteppingDirectProjection>(
-          this->impl->timedisc, this->impl->osi, _osnspb, _osnspb_pos);
+          this->impl->nsds, this->impl->timedisc, this->impl->osi,
+          _osnspb, _osnspb_pos);
 
       simulation->setProjectionMaxIteration(projection_itermax);
       simulation->setConstraintTolUnilateral(projection_tolerance_unilateral);
@@ -366,9 +369,6 @@ void SiconosWorld::setup()
     if (!Newton_warn_nonconverge) {
       this->impl->simulation->setCheckSolverFunction([](int, Simulation*){});
     }
-
-    this->impl->model->setSimulation(this->impl->simulation);
-    this->impl->model->initialize();
   }
 
   catch (SiconosException e)
@@ -435,14 +435,14 @@ SP::OneStepIntegrator SiconosWorld::GetOneStepIntegrator() const
   return this->impl->osi;
 }
 
-SP::Model SiconosWorld::GetModel() const
-{
-  return this->impl->model;
-}
-
-SP::SiconosCollisionManager SiconosWorld::GetManager() const
+SP::SiconosCollisionManager SiconosWorld::GetCollisionManager() const
 {
   return this->impl->manager;
+}
+
+SP::NonSmoothDynamicalSystem SiconosWorld::GetNonSmoothDynamicalSystem() const
+{
+  return this->impl->nsds;
 }
 
 SP::TimeStepping SiconosWorld::GetSimulation() const

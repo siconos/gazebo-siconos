@@ -273,14 +273,11 @@ void SiconosHinge2Joint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
     std11::make_shared<EqualityConditionNSL>(nc), ri2.relation);
 
   // Add the coupler to the NSDS
-  this->siconosWorld->GetSimulation()->nonSmoothDynamicalSystem()
-    ->insertDynamicalSystem(dsc);
+  this->siconosWorld->GetNonSmoothDynamicalSystem()->insertDynamicalSystem(dsc);
 
   // Initialize its integrator
-  this->siconosWorld->GetSimulation()->prepareIntegratorForDS(
-      this->siconosWorld->GetOneStepIntegrator(), dsc,
-      this->siconosWorld->GetModel(),
-      this->siconosWorld->GetSimulation()->nextTime());
+  this->siconosWorld->GetSimulation()->associate(
+    this->siconosWorld->GetOneStepIntegrator(), dsc);
 
   // Add the interactions to the NSDS
   this->siconosWorld->GetSimulation()->link(ri1.interaction, ds1, dsc);
@@ -291,7 +288,7 @@ void SiconosHinge2Joint::SiconosConnectJoint(SP::BodyDS ds1, SP::BodyDS ds2)
 void SiconosHinge2Joint::SiconosDisconnectJoint()
 {
   // Remove the coupler from the NSDS
-  this->siconosWorld->GetSimulation()->nonSmoothDynamicalSystem()
+  this->siconosWorld->GetNonSmoothDynamicalSystem()
     ->removeDynamicalSystem(this->siconosCouplerDS);
 
   this->siconosCouplerDS.reset();

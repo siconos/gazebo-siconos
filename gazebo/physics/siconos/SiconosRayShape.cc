@@ -91,7 +91,8 @@ void SiconosRayShape::Update()
       *this->physicsEngine->GetPhysicsUpdateMutex());
 
   auto result =
-    this->physicsEngine->GetSiconosWorld()->GetManager()->lineIntersectionQuery(
+    this->physicsEngine->GetSiconosWorld()
+    ->GetCollisionManager()->lineIntersectionQuery(
       startPoint, endPoint, true, false);
 
   if (result.size() > 0)
@@ -133,7 +134,7 @@ void SiconosRayShape::GetIntersection(double &_dist, std::string &_entity)
       *this->physicsEngine->GetPhysicsUpdateMutex());
 
   auto sworld = this->physicsEngine->GetSiconosWorld();
-  auto result = sworld->GetManager()->lineIntersectionQuery(
+  auto result = sworld->GetCollisionManager()->lineIntersectionQuery(
     startPoint, endPoint, true, false);
 
   if (result.size() > 0)

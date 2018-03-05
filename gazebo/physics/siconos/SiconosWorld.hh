@@ -53,11 +53,11 @@ class SiconosWorld
   /// \brief Get the Siconos OneStepIntegrator for this simulation
   public: SP::OneStepIntegrator GetOneStepIntegrator() const;
 
-  /// \brief Get the Siconos Model for this simulation
-  public: SP::Model GetModel() const;
+  /// \brief Get the Siconos NonSmoothDynamicalSystem for this simulation
+  public: SP::NonSmoothDynamicalSystem GetNonSmoothDynamicalSystem() const;
 
   /// \brief Get the Siconos CollisionManager for this simulation
-  public: SP::SiconosCollisionManager GetManager() const;
+  public: SP::SiconosCollisionManager GetCollisionManager() const;
 
   /// \brief Get the Siconos Simulation for this simulation
   public: SP::TimeStepping GetSimulation() const;

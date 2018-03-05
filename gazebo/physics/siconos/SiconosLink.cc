@@ -161,17 +161,17 @@ void SiconosLink::Init()
   if (this->body)
   {
     // Add DS to the model
-    siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+    siconosWorld->GetNonSmoothDynamicalSystem()
       ->insertDynamicalSystem(this->body);
 
     /* Prepare the simulation integrator for the new DS */
-    siconosWorld->GetSimulation()->prepareIntegratorForDS(
-      siconosWorld->GetOneStepIntegrator(), this->body,
-      siconosWorld->GetModel(), siconosWorld->GetSimulation()->nextTime());
+    siconosWorld->GetSimulation()->associate(
+      siconosWorld->GetOneStepIntegrator(), this->body);
   }
   else {
     // Add contactor to collision world
-    siconosWorld->GetManager()->insertStaticContactorSet(this->contactorSet, q);
+    siconosWorld->GetCollisionManager()
+      ->insertStaticContactorSet(this->contactorSet, q);
   }
 
   this->SetGravityMode(this->sdf->Get<bool>("gravity"));
@@ -189,8 +189,8 @@ void SiconosLink::Fini()
   GZ_ASSERT(siconosWorld != NULL, "SiconosWorld is NULL");
 
   if (this->body) {
-    siconosWorld->GetManager()->removeBody(this->body);
-    siconosWorld->GetModel()->nonSmoothDynamicalSystem()
+    siconosWorld->GetCollisionManager()->removeBody(this->body);
+    siconosWorld->GetNonSmoothDynamicalSystem()
       ->removeDynamicalSystem(this->body);
   }
 
